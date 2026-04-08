@@ -6,6 +6,7 @@
     "jsxImportSource": "vue",
     "useDefineForClassFields": true,
     "declaration": true,
+    "rootDir": "./src",
     "outDir": "dist",
     "emitDeclarationOnly": true,
 
