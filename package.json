@@ -1,0 +1,29 @@
+{
+  "name": "vue3-vegas",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rslib && vue-tsc",
+    "dev": "rslib --watch"
+  },
+  "devDependencies": {
+    "@rslib/core": "^0.20.3",
+    "rsbuild-plugin-unplugin-vue": "^0.2.0",
+    "typescript": "^6.0.2",
+    "vue": "^3.5.31",
+    "vue-tsc": "^3.2.6"
+  },
+  "peerDependencies": {
+    "vue": "^3.2.0"
+  }
+}
