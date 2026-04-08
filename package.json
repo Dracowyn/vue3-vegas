@@ -20,15 +20,22 @@
   "scripts": {
     "build": "rslib && vue-tsc",
     "dev": "rslib --watch",
+    "storybook": "storybook dev",
+    "build-storybook": "storybook build",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "devDependencies": {
     "@rslib/core": "^0.20.3",
+    "@storybook/addon-docs": "^10.3.5",
+    "@storybook/addon-onboarding": "^10.3.5",
     "@vitejs/plugin-vue": "^6.0.5",
     "@vue/test-utils": "^2.4.6",
     "jsdom": "^29.0.0",
     "rsbuild-plugin-unplugin-vue": "^0.2.0",
+    "storybook": "^10.3.5",
+    "storybook-addon-rslib": "^3.3.2",
+    "storybook-vue3-rsbuild": "^3.3.2",
     "typescript": "^6.0.2",
     "vitest": "^4.1.0",
     "vue": "^3.5.31",
