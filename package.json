@@ -2,24 +2,34 @@
   "name": "vue3-vegas",
   "version": "0.1.0",
   "type": "module",
-  "description": "Vegas.js for Vue 3",
+  "description": "Vegas.js for Vue 3 — a full-screen slideshow/background component",
   "author": "Dracowyn",
   "license": "MIT",
+  "keywords": [
+    "vue",
+    "vue3",
+    "vegas",
+    "slideshow",
+    "background",
+    "transition",
+    "carousel"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
   },
+  "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
-    "src",
     "README.md"
   ],
   "scripts": {
-    "build": "rslib && vue-tsc",
+    "build": "rslib build && vue-tsc",
     "dev": "rslib --watch",
+    "prepublishOnly": "pnpm run build",
     "storybook": "storybook dev",
     "build-storybook": "storybook build",
     "test": "vitest run",
