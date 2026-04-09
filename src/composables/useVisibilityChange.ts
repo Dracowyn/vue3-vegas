@@ -1,4 +1,4 @@
-import { ref, watch, onUnmounted } from 'vue';
+import { onUnmounted } from 'vue';
 import type { Logger } from '../types';
 
 export const useVisibilityChange = (
@@ -7,25 +7,20 @@ export const useVisibilityChange = (
 	pause: () => void,
 	log: () => Logger
 ) => {
-	const shouldResume = ref(false);
+	let shouldResume = false;
 
 	const handleVisibilityChange = () => {
 		if (document.hidden) {
-			shouldResume.value = getIsPlaying();
+			shouldResume = getIsPlaying();
 			log()('页面隐藏，暂停播放幻灯片');
 			pause();
-		} else if (shouldResume.value) {
+		} else if (shouldResume) {
 			log()('页面可见，继续播放幻灯片');
 			play();
 		}
 	};
 
 	document.addEventListener('visibilitychange', handleVisibilityChange);
-
-	// Keep playing state in sync
-	watch(getIsPlaying, () => {
-		// no-op, just track for visibility handler
-	});
 
 	onUnmounted(() => {
 		document.removeEventListener('visibilitychange', handleVisibilityChange);

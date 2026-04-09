@@ -23,7 +23,6 @@ export const usePreload = (
 	const batchPreloadImages = async () => {
 		if (!getPreloadImage()) return;
 
-		loading.value = true;
 		loadProgress.value = 0;
 		const batchSize = getPreloadImageBatch();
 		const slides = getSlides();
@@ -31,7 +30,6 @@ export const usePreload = (
 
 		if (imageSlides.length === 0) {
 			loadProgress.value = 100;
-			loading.value = false;
 			return;
 		}
 
@@ -58,8 +56,6 @@ export const usePreload = (
 			}
 		} catch (error) {
 			logError()('预加载图片时发生错误:', error);
-		} finally {
-			loading.value = false;
 		}
 	};
 

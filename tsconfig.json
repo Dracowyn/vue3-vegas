@@ -2,7 +2,9 @@
   "compilerOptions": {
     "lib": ["DOM", "ES2022"],
     "jsx": "preserve",
+    "strict": true,
     "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
     "jsxImportSource": "vue",
     "useDefineForClassFields": true,
     "declaration": true,

@@ -2,21 +2,14 @@
 import { ref, computed, watch } from 'vue';
 import type { CSSProperties } from 'vue';
 import type { SlideProps, Logger } from '../types';
-import type { VegasVariants } from '../composables/useAnimationVariants';
 
 const props = defineProps<{
 	slide: SlideProps;
 	index: number;
-	isFirstTransition: boolean;
-	firstTransition: string | null;
-	firstTransitionDuration: number;
-	transitionDuration: number;
-	transition: string;
 	cover: boolean;
 	align: string;
 	valign: string;
 	color: string | null;
-	variants: VegasVariants;
 	preloadImage: boolean;
 	loadedImages: Record<string, boolean>;
 	isMediaPlaying: boolean;
@@ -28,21 +21,9 @@ const props = defineProps<{
 }>();
 
 const videoRef = ref<HTMLVideoElement | null>(null);
-const slideRef = ref<HTMLElement | null>(null);
-const entered = ref(false);
 
 const mediaFit = computed(() => (props.slide.cover ?? props.cover) ? 'cover' : 'contain');
 const mediaPosition = computed(() => `${props.slide.align || props.align} ${props.slide.valign || props.valign}`);
-const currentTransition = computed(() =>
-	props.isFirstTransition && props.firstTransition
-		? props.firstTransition
-		: props.slide.transition || props.transition
-);
-const currentTransitionDurationValue = computed(() =>
-	props.isFirstTransition
-		? props.firstTransitionDuration
-		: props.slide.transitionDuration || props.transitionDuration
-);
 
 const surfaceStyle = computed<CSSProperties>(() => ({
 	position: 'absolute',
@@ -86,21 +67,6 @@ watch(() => props.isMediaPlaying, (playing) => {
 	}
 });
 
-// Apply enter animation on mount
-const applyEnterAnimation = () => {
-	if (!slideRef.value || entered.value) return;
-	entered.value = true;
-
-	const transName = currentTransition.value;
-	const variant = props.variants[transName] || props.variants.fade;
-	const config = { duration: currentTransitionDurationValue.value / 1000 };
-	const handlers = variant(config);
-
-	if (handlers.onEnter) {
-		handlers.onEnter(slideRef.value, () => {});
-	}
-};
-
 const handleVideoEnded = () => {
 	if (!props.slide.video?.loop && props.canAdvance) {
 		props.log('视频播放结束,切换到下一张');
@@ -111,23 +77,14 @@ const handleVideoEnded = () => {
 const handleImgError = () => {
 	props.logError(`图片加载失败: ${props.slide.src}`);
 };
-
-const onSlideRef = (el: HTMLElement | null) => {
-	slideRef.value = el;
-	if (el) {
-		requestAnimationFrame(applyEnterAnimation);
-	}
-};
 </script>
 
 <template>
 	<div
-		:ref="(el) => onSlideRef(el as HTMLElement | null)"
 		:style="{
 			position: 'absolute',
 			width: '100%',
 			height: '100%',
-			opacity: 0,
 		}"
 	>
 		<template v-if="slide.video">
