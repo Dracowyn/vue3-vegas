@@ -100,7 +100,9 @@ export const useVegasLifecycle = (
 	const isFirstTransition = () => phase.value === 'firstSlide';
 	const shouldRenderSlides = () =>
 		phase.value === 'firstSlide' || phase.value === 'playing' || phase.value === 'paused';
-	const showDefaultBackground = () => phase.value === 'showingDefaultBackground';
+	const showDefaultBackground = () =>
+		phase.value === 'showingDefaultBackground' || phase.value === 'firstSlide';
+	const isDefaultBackgroundLeaving = () => phase.value === 'firstSlide';
 
 	return {
 		phase,
@@ -108,6 +110,7 @@ export const useVegasLifecycle = (
 		isFirstTransition,
 		shouldRenderSlides,
 		showDefaultBackground,
+		isDefaultBackgroundLeaving,
 		play,
 		pause,
 	};

@@ -71,6 +71,7 @@ const {
 	isFirstTransition,
 	shouldRenderSlides,
 	showDefaultBackground,
+	isDefaultBackgroundLeaving,
 	play: startPlayback,
 	pause: stopPlayback,
 } = useVegasLifecycle(
@@ -134,6 +135,35 @@ useAutoplay(
 
 useVisibilityChange(isPlaying, play, pause, () => log.value);
 
+// Compute slide transition info (stored as data attrs for TransitionGroup hooks)
+const getSlideTransitionName = (idx: number) => {
+	const slide = props.slides[idx];
+	if (isFirstTransition() && props.firstTransition) return props.firstTransition;
+	return slide?.transition || props.transition;
+};
+
+const getSlideTransitionDuration = (idx: number) => {
+	const slide = props.slides[idx];
+	if (isFirstTransition()) return props.firstTransitionDuration;
+	return slide?.transitionDuration || props.transitionDuration;
+};
+
+const handleSlideEnter = (el: Element, done: () => void) => {
+	const htmlEl = el as HTMLElement;
+	const transName = htmlEl.dataset.transitionName || 'fade';
+	const duration = Number(htmlEl.dataset.transitionDuration) || props.transitionDuration;
+	const variant = variants[transName] || variants.fade;
+	variant({ duration: duration / 1000 }).onEnter(el, done);
+};
+
+const handleSlideLeave = (el: Element, done: () => void) => {
+	const htmlEl = el as HTMLElement;
+	const transName = htmlEl.dataset.transitionName || 'fade';
+	const variant = variants[transName] || variants.fade;
+	// Leave always uses base transitionDuration (matching React AnimatePresence behavior)
+	variant({ duration: props.transitionDuration / 1000 }).onLeave(el, done);
+};
+
 // Track phase changes for onPlay/onPause callbacks
 let previousPhase: string | null = null;
 watch(phase, (newPhase) => {
@@ -149,20 +179,19 @@ watch(phase, (newPhase) => {
 });
 
 // Handle transitioning state cleanup
+let transitionTimer: ReturnType<typeof setTimeout> | null = null;
+
 watch(isTransitioning, (val) => {
+	if (transitionTimer !== null) {
+		clearTimeout(transitionTimer);
+		transitionTimer = null;
+	}
 	if (val) {
-		const timer = setTimeout(() => {
+		transitionTimer = setTimeout(() => {
+			transitionTimer = null;
 			isTransitioning.value = false;
 			log.value('幻灯片切换动画完成');
 		}, props.transitionDuration);
-		// Store for cleanup if needed
-		const cleanup = () => clearTimeout(timer);
-		const unwatch = watch(isTransitioning, (newVal) => {
-			if (!newVal) {
-				cleanup();
-				unwatch();
-			}
-		});
 	}
 });
 
@@ -172,6 +201,9 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+	if (transitionTimer !== null) {
+		clearTimeout(transitionTimer);
+	}
 	log.value('Vegas组件卸载');
 });
 
@@ -199,25 +231,30 @@ defineExpose<VegasHandle>({
 		<VegasDefaultBackground
 			v-if="defaultBackground && showDefaultBackground()"
 			:background-url="defaultBackground"
+			:leaving="isDefaultBackgroundLeaving()"
+			:transition-duration="firstTransitionDuration"
 		/>
 
 		<!-- 幻灯片 -->
-		<template v-if="shouldRenderSlides()">
+		<TransitionGroup
+			v-if="shouldRenderSlides()"
+			:css="false"
+			appear
+			@enter="handleSlideEnter"
+			@leave="handleSlideLeave"
+		>
 			<VegasSlideRenderer
 				v-for="idx in visibleSlides"
 				:key="slides[idx]?.src ?? idx"
+				:data-slide-index="String(idx)"
+				:data-transition-name="getSlideTransitionName(idx)"
+				:data-transition-duration="String(getSlideTransitionDuration(idx))"
 				:slide="slides[idx]"
 				:index="idx"
-				:is-first-transition="isFirstTransition()"
-				:first-transition="firstTransition"
-				:first-transition-duration="firstTransitionDuration"
-				:transition-duration="transitionDuration"
-				:transition="transition"
 				:cover="cover"
 				:align="align"
 				:valign="valign"
 				:color="color"
-				:variants="variants"
 				:preload-image="preloadImage"
 				:loaded-images="loadedImages"
 				:is-media-playing="phase !== 'paused'"
@@ -227,7 +264,7 @@ defineExpose<VegasHandle>({
 				:log-warn="logWarn"
 				:log-error="logError"
 			/>
-		</template>
+		</TransitionGroup>
 
 		<!-- 遮罩层 -->
 		<VegasOverlay

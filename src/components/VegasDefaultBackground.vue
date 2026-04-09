@@ -3,6 +3,8 @@ import { sanitizeCssUrl } from '../utils/sanitizeUrl';
 
 defineProps<{
 	backgroundUrl: string;
+	leaving?: boolean;
+	transitionDuration?: number;
 }>();
 </script>
 
@@ -18,7 +20,8 @@ defineProps<{
 			backgroundSize: 'cover',
 			backgroundPosition: 'center',
 			zIndex: 0,
-			opacity: 1,
+			opacity: leaving ? 0 : 1,
+			transition: leaving ? `opacity ${(transitionDuration || 1000) / 1000}s ease` : undefined,
 		}"
 	/>
 </template>
