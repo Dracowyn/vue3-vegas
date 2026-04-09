@@ -46,8 +46,18 @@ export const useVegasState = (
 		const shuffle = getShuffle();
 		const order = buildSlideOrder(slides.length, shuffle);
 		const normalizedInitialSlide = clampSlideIndex(getInitialSlide(), slides.length);
-		const initialOrderIndex = shuffle ? order.indexOf(normalizedInitialSlide) : normalizedInitialSlide;
-		const nextOrderIndex = initialOrderIndex >= 0 ? initialOrderIndex : 0;
+
+		// When shuffled, move the initial slide to the front so playback
+		// always starts at orderIndex 0 and the progress bar begins at 0%.
+		if (shuffle) {
+			const idx = order.indexOf(normalizedInitialSlide);
+			if (idx > 0) {
+				order.splice(idx, 1);
+				order.unshift(normalizedInitialSlide);
+			}
+		}
+
+		const nextOrderIndex = shuffle ? 0 : normalizedInitialSlide;
 		const nextSlideIndex = order[nextOrderIndex] ?? normalizedInitialSlide;
 
 		if (shuffle) {
