@@ -5,6 +5,14 @@
   "description": "Vegas.js for Vue 3 — a full-screen slideshow/background component",
   "author": "Dracowyn",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Dracowyn/vue3-vegas"
+  },
+  "homepage": "https://github.com/Dracowyn/vue3-vegas#readme",
+  "bugs": {
+    "url": "https://github.com/Dracowyn/vue3-vegas/issues"
+  },
   "keywords": [
     "vue",
     "vue3",
