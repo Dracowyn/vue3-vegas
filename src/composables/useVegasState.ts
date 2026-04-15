@@ -47,16 +47,9 @@ export const useVegasState = (
 		const order = buildSlideOrder(slides.length, shuffle);
 		const normalizedInitialSlide = clampSlideIndex(getInitialSlide(), slides.length);
 
-		// When shuffled, move the initial slide to the front so playback
-		// always starts at orderIndex 0 and the progress bar begins at 0%.
-		if (shuffle) {
-			const idx = order.indexOf(normalizedInitialSlide);
-			if (idx > 0) {
-				order.splice(idx, 1);
-				order.unshift(normalizedInitialSlide);
-			}
-		}
-
+		// When shuffled, start at orderIndex 0 (a random slide) so the
+		// progress bar begins at 0%.  No need to force the initial slide
+		// to the front — that would destroy the randomness for small sets.
 		const nextOrderIndex = shuffle ? 0 : normalizedInitialSlide;
 		const nextSlideIndex = order[nextOrderIndex] ?? normalizedInitialSlide;
 
@@ -102,8 +95,22 @@ export const useVegasState = (
 		let nextOrderIndex = currentOrderIndex.value + 1;
 		if (nextOrderIndex >= slideOrder.value.length) {
 			if (getLoop()) {
-				nextOrderIndex = 0;
 				log()('到达最后一张,循环回到第一张');
+
+				// Re-shuffle on each loop so the order feels truly random.
+				// Avoid starting the new cycle with the slide that just played.
+				if (getShuffle()) {
+					const lastSlide = currentSlide.value;
+					const newOrder = buildSlideOrder(slideOrder.value.length, true);
+					if (newOrder.length > 1 && newOrder[0] === lastSlide) {
+						const swapIdx = 1 + Math.floor(Math.random() * (newOrder.length - 1));
+						[newOrder[0], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[0]];
+					}
+					slideOrder.value = newOrder;
+					log()('重新随机排序:', newOrder);
+				}
+
+				nextOrderIndex = 0;
 			} else {
 				log()('到达最后一张,停止播放');
 				stopPlayback?.();

@@ -17,15 +17,21 @@ export const useAnimationVariants = (getTransitionDuration: () => number) => {
 		Object.assign(htmlEl.style, styles);
 	};
 
+	// Force a reflow so the browser registers the initial style before
+	// the transition target is applied.  More reliable than a single
+	// requestAnimationFrame, especially during Nuxt/SSR hydration.
+	const forceReflow = (el: Element) => {
+		void (el as HTMLElement).offsetHeight;
+	};
+
 	const variants: VegasVariants = {
 		fade: (config: AnimationConfig) => ({
 			onEnter: (el, done) => {
 				applyStyles(el, { opacity: '0' });
-				requestAnimationFrame(() => {
-					applyStyles(el, {
-						opacity: '1',
-						transition: `opacity ${config.duration}s`,
-					});
+				forceReflow(el);
+				applyStyles(el, {
+					opacity: '1',
+					transition: `opacity ${config.duration}s`,
 				});
 				setTimeout(done, config.duration * 1000);
 			},
@@ -40,12 +46,11 @@ export const useAnimationVariants = (getTransitionDuration: () => number) => {
 		slideLeft: (config: AnimationConfig) => ({
 			onEnter: (el, done) => {
 				applyStyles(el, { transform: 'translateX(100%)', opacity: '0' });
-				requestAnimationFrame(() => {
-					applyStyles(el, {
-						transform: 'translateX(0)',
-						opacity: '1',
-						transition: `transform ${config.duration}s, opacity ${config.duration}s`,
-					});
+				forceReflow(el);
+				applyStyles(el, {
+					transform: 'translateX(0)',
+					opacity: '1',
+					transition: `transform ${config.duration}s, opacity ${config.duration}s`,
 				});
 				setTimeout(done, config.duration * 1000);
 			},
@@ -62,12 +67,11 @@ export const useAnimationVariants = (getTransitionDuration: () => number) => {
 		slideRight: (config: AnimationConfig) => ({
 			onEnter: (el, done) => {
 				applyStyles(el, { transform: 'translateX(-100%)', opacity: '0' });
-				requestAnimationFrame(() => {
-					applyStyles(el, {
-						transform: 'translateX(0)',
-						opacity: '1',
-						transition: `transform ${config.duration}s, opacity ${config.duration}s`,
-					});
+				forceReflow(el);
+				applyStyles(el, {
+					transform: 'translateX(0)',
+					opacity: '1',
+					transition: `transform ${config.duration}s, opacity ${config.duration}s`,
 				});
 				setTimeout(done, config.duration * 1000);
 			},
@@ -84,12 +88,11 @@ export const useAnimationVariants = (getTransitionDuration: () => number) => {
 		zoomIn: (config: AnimationConfig) => ({
 			onEnter: (el, done) => {
 				applyStyles(el, { transform: 'scale(0.5)', opacity: '0' });
-				requestAnimationFrame(() => {
-					applyStyles(el, {
-						transform: 'scale(1)',
-						opacity: '1',
-						transition: `transform ${config.duration}s, opacity ${config.duration}s`,
-					});
+				forceReflow(el);
+				applyStyles(el, {
+					transform: 'scale(1)',
+					opacity: '1',
+					transition: `transform ${config.duration}s, opacity ${config.duration}s`,
 				});
 				setTimeout(done, config.duration * 1000);
 			},
@@ -106,12 +109,11 @@ export const useAnimationVariants = (getTransitionDuration: () => number) => {
 		zoomOut: (config: AnimationConfig) => ({
 			onEnter: (el, done) => {
 				applyStyles(el, { transform: 'scale(1.25)', opacity: '0' });
-				requestAnimationFrame(() => {
-					applyStyles(el, {
-						transform: 'scale(1)',
-						opacity: '1',
-						transition: `transform ${config.duration}s, opacity ${config.duration}s`,
-					});
+				forceReflow(el);
+				applyStyles(el, {
+					transform: 'scale(1)',
+					opacity: '1',
+					transition: `transform ${config.duration}s, opacity ${config.duration}s`,
 				});
 				setTimeout(done, config.duration * 1000);
 			},
@@ -128,12 +130,11 @@ export const useAnimationVariants = (getTransitionDuration: () => number) => {
 		zoomInOut: (config: AnimationConfig) => ({
 			onEnter: (el, done) => {
 				applyStyles(el, { transform: 'scale(1)', opacity: '0' });
-				requestAnimationFrame(() => {
-					applyStyles(el, {
-						transform: 'scale(1.25)',
-						opacity: '1',
-						transition: `transform ${config.duration}s, opacity ${config.duration}s`,
-					});
+				forceReflow(el);
+				applyStyles(el, {
+					transform: 'scale(1.25)',
+					opacity: '1',
+					transition: `transform ${config.duration}s, opacity ${config.duration}s`,
 				});
 				setTimeout(done, config.duration * 1000);
 			},

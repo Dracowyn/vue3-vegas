@@ -21,7 +21,7 @@ defineProps<{
 			backgroundPosition: 'center',
 			zIndex: 0,
 			opacity: leaving ? 0 : 1,
-			transition: leaving ? `opacity ${(transitionDuration || 1000) / 1000}s ease` : undefined,
+			transition: `opacity ${(transitionDuration || 1000) / 1000}s ease`,
 		}"
 	/>
 </template>

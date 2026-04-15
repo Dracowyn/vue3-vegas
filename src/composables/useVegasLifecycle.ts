@@ -1,4 +1,4 @@
-import { ref, watch, onUnmounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import type { Logger, VegasPhase } from '../types';
 
 export const useVegasLifecycle = (
@@ -85,10 +85,14 @@ export const useVegasLifecycle = (
 		}, getFirstTransitionDuration());
 	};
 
+	// Start lifecycle only on the client to avoid window/document access
+	// during SSR and prevent hydration mismatches.
+	onMounted(() => { void runLifecycle(); });
+
+	// Re-run lifecycle when relevant props change after mount.
 	watch(
 		[getPreload, getAutoplay, getHasDefaultBackground, getDefaultBackgroundDuration, getFirstTransitionDuration],
-		() => { void runLifecycle(); },
-		{ immediate: true }
+		() => { void runLifecycle(); }
 	);
 
 	onUnmounted(() => {
