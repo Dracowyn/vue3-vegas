@@ -267,6 +267,77 @@ describe('Vegas', () => {
 		expect(typeof vm.pause).toBe('function');
 	});
 
+	it('holds the transition lock for the incoming slide custom duration', async () => {
+		vi.useFakeTimers();
+
+		const wrapper = mount(Vegas, {
+			props: {
+				slides: [
+					{ src: '/a.jpg' },
+					{ src: '/b.jpg', transitionDuration: 3000 },
+					{ src: '/c.jpg' },
+				],
+				autoplay: false,
+				transition: 'fade',
+				transitionDuration: 1000,
+				firstTransitionDuration: 0,
+			},
+		});
+
+		await flushEffects();
+
+		const vm = wrapper.vm as unknown as { next: () => void };
+
+		// A -> B：B 的进入动画时长是 3000ms，锁应保持 3000ms。
+		vm.next();
+		await flushEffects();
+		expect(findSlideBySource(wrapper, '/b.jpg')).toBe(true);
+
+		// 推进基础时长 1000ms —— 旧代码会在这里就释放锁。
+		await advanceTimers(1000);
+
+		// 锁应仍被持有：再次 next 应被忽略，停留在 B，不应进入 C。
+		vm.next();
+		await flushEffects();
+		expect(findSlideBySource(wrapper, '/c.jpg')).toBe(false);
+
+		// 推进剩余的 2000ms，B 的进入动画结束，锁释放。
+		await advanceTimers(2000);
+		vm.next();
+		await flushEffects();
+		expect(findSlideBySource(wrapper, '/c.jpg')).toBe(true);
+	});
+
+	it('does not warn on duplicate keys when slides share the same src', async () => {
+		vi.useFakeTimers();
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		try {
+			const wrapper = mount(Vegas, {
+				props: {
+					slides: [{ src: '/dup.jpg' }, { src: '/dup.jpg' }],
+					autoplay: false,
+					transition: 'fade',
+					transitionDuration: 100,
+					firstTransitionDuration: 0,
+				},
+			});
+
+			await flushEffects();
+
+			// 切换时,离开与进入的两张幻灯片同时在 DOM 中且 src 相同。
+			(wrapper.vm as unknown as { next: () => void }).next();
+			await flushEffects();
+
+			const dupKeyWarning = warnSpy.mock.calls.some(callArgs =>
+				callArgs.some(arg => typeof arg === 'string' && arg.includes('Duplicate keys'))
+			);
+			expect(dupKeyWarning).toBe(false);
+		} finally {
+			warnSpy.mockRestore();
+		}
+	});
+
 	it('marks decorative slide images as aria-hidden', async () => {
 		const wrapper = mount(Vegas, {
 			props: {

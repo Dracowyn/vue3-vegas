@@ -109,8 +109,14 @@ const {
 	previous: statePrevious,
 } = vegasState;
 
+// 锁需保持到本次切换的进入动画结束。进入动画用的是目标幻灯片的有效时长,
+// 离开动画固定用基础时长,取两者较大值,避免短锁导致动画重叠。
+const currentTransitionDuration = ref(props.transitionDuration);
+
 const startTransition = (transitionStarted: boolean) => {
 	if (transitionStarted) {
+		const enterDuration = getSlideTransitionDuration(currentSlide.value);
+		currentTransitionDuration.value = Math.max(enterDuration, props.transitionDuration);
 		isTransitioning.value = true;
 	}
 	return transitionStarted;
@@ -197,7 +203,7 @@ watch(isTransitioning, (val) => {
 			transitionTimer = null;
 			isTransitioning.value = false;
 			log.value('幻灯片切换动画完成');
-		}, props.transitionDuration);
+		}, currentTransitionDuration.value);
 	}
 });
 
@@ -251,7 +257,7 @@ defineExpose<VegasHandle>({
 		>
 			<VegasSlideRenderer
 				v-for="idx in visibleSlides"
-				:key="slides[idx]?.src ?? idx"
+				:key="`${slides[idx]?.src ?? ''}-${idx}`"
 				:data-slide-index="String(idx)"
 				:data-transition-name="getSlideTransitionName(idx)"
 				:data-transition-duration="String(getSlideTransitionDuration(idx))"
