@@ -10,8 +10,6 @@ const props = defineProps<{
 	align: string;
 	valign: string;
 	color: string | null;
-	preloadImage: boolean;
-	loadedImages: Record<string, boolean>;
 	isMediaPlaying: boolean;
 	canAdvance: boolean;
 	next: () => void;
@@ -45,10 +43,6 @@ const imgStyle = computed<CSSProperties>(() => ({
 	objectFit: mediaFit.value,
 	objectPosition: mediaPosition.value,
 }));
-
-const isImagePreloaded = computed(() =>
-	props.preloadImage && props.loadedImages[props.slide.src]
-);
 
 // Control video play/pause
 watch(() => props.isMediaPlaying, (playing) => {
@@ -108,7 +102,7 @@ const handleImgError = () => {
 				:src="slide.src"
 				alt=""
 				:style="imgStyle"
-				:aria-hidden="!isImagePreloaded"
+				aria-hidden="true"
 				@error="handleImgError"
 			/>
 		</template>

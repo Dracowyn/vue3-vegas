@@ -51,12 +51,18 @@ const isTransitioning = ref(false);
 
 const effectivePreloadImageBatch = computed(() => props.preloadImageBatch ?? props.preLoadImageBatch ?? 3);
 
+// `preload` 是主开关,等价于同时开启图片与视频预加载(与原版 Vegas.js 语义一致);
+// `preloadImage` / `preloadVideo` 也可单独开启各自的预加载。
+const effectivePreloadImage = computed(() => props.preload || props.preloadImage);
+const effectivePreloadVideo = computed(() => props.preload || props.preloadVideo);
+const shouldPreload = computed(() => effectivePreloadImage.value || effectivePreloadVideo.value);
+
 const { log, logWarn, logError } = useLogger(() => props.debug);
 
-const { loading, loadProgress, loadedImages, preloadResources } = usePreload(
+const { loading, loadProgress, preloadResources } = usePreload(
 	() => props.slides,
-	() => props.preloadImage,
-	() => props.preloadVideo,
+	() => effectivePreloadImage.value,
+	() => effectivePreloadVideo.value,
 	() => effectivePreloadImageBatch.value,
 	() => log.value,
 	() => logWarn.value,
@@ -75,7 +81,7 @@ const {
 	play: startPlayback,
 	pause: stopPlayback,
 } = useVegasLifecycle(
-	() => props.preload,
+	() => shouldPreload.value,
 	() => props.autoplay,
 	() => Boolean(props.defaultBackground),
 	() => props.defaultBackgroundDuration,
@@ -255,8 +261,6 @@ defineExpose<VegasHandle>({
 				:align="align"
 				:valign="valign"
 				:color="color"
-				:preload-image="preloadImage"
-				:loaded-images="loadedImages"
 				:is-media-playing="phase !== 'paused'"
 				:can-advance="phase === 'playing'"
 				:next="next"

@@ -130,6 +130,87 @@ describe('Vegas', () => {
 		expect(document.head.querySelectorAll('link[rel="preload"]')).toHaveLength(0);
 	});
 
+	it('preloads images when only preloadImage is enabled (no master preload)', async () => {
+		const createdSrcs: string[] = [];
+
+		class FakeImage {
+			onload: (() => void) | null = null;
+			onerror: (() => void) | null = null;
+			private _src = '';
+			set src(value: string) {
+				this._src = value;
+				createdSrcs.push(value);
+				// 模拟浏览器异步触发 onload
+				Promise.resolve().then(() => this.onload?.());
+			}
+			get src() {
+				return this._src;
+			}
+		}
+
+		const OriginalImage = global.Image;
+		global.Image = FakeImage as unknown as typeof Image;
+
+		try {
+			mount(Vegas, {
+				props: {
+					slides,
+					autoplay: false,
+					// 故意只开 preloadImage,不开主开关 preload
+					preloadImage: true,
+					firstTransitionDuration: 0,
+				},
+			});
+
+			await flushEffects();
+			await flushEffects();
+
+			expect(createdSrcs).toEqual(['/slide-1.jpg', '/slide-2.jpg']);
+		} finally {
+			global.Image = OriginalImage;
+		}
+	});
+
+	it('preloads images when the master preload flag is enabled', async () => {
+		const createdSrcs: string[] = [];
+
+		class FakeImage {
+			onload: (() => void) | null = null;
+			onerror: (() => void) | null = null;
+			private _src = '';
+			set src(value: string) {
+				this._src = value;
+				createdSrcs.push(value);
+				Promise.resolve().then(() => this.onload?.());
+			}
+			get src() {
+				return this._src;
+			}
+		}
+
+		const OriginalImage = global.Image;
+		global.Image = FakeImage as unknown as typeof Image;
+
+		try {
+			mount(Vegas, {
+				props: {
+					slides,
+					autoplay: false,
+					// 主开关应同时触发图片预加载（与原版 Vegas.js 语义一致）
+					preload: true,
+					firstTransitionDuration: 0,
+				},
+			});
+
+			await flushEffects();
+			await flushEffects();
+
+			expect(createdSrcs).toEqual(['/slide-1.jpg', '/slide-2.jpg']);
+		} finally {
+			global.Image = OriginalImage;
+		}
+	});
+
 	it('returns null when slides array is empty', async () => {
 		const wrapper = mount(Vegas, {
 			props: {
@@ -184,5 +265,21 @@ describe('Vegas', () => {
 		expect(typeof vm.previous).toBe('function');
 		expect(typeof vm.play).toBe('function');
 		expect(typeof vm.pause).toBe('function');
+	});
+
+	it('marks decorative slide images as aria-hidden', async () => {
+		const wrapper = mount(Vegas, {
+			props: {
+				slides: [slides[0]],
+				autoplay: false,
+				firstTransitionDuration: 0,
+			},
+		});
+
+		await flushEffects();
+
+		const img = wrapper.find(`img[src="${slides[0].src}"]`);
+		expect(img.exists()).toBe(true);
+		expect(img.attributes('aria-hidden')).toBe('true');
 	});
 });
