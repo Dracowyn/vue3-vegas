@@ -105,6 +105,27 @@ describe('onEnd 回调', () => {
 		expect(calls).toEqual(['end', 'pause']);
 	});
 
+	it('本来就是暂停状态时播完，只触发 onEnd 不触发 onPause', async () => {
+		vi.useFakeTimers();
+		const calls: string[] = [];
+		const wrapper = mountVegas({
+			loop: false,
+			autoplay: false,
+			onEnd: () => calls.push('end'),
+			onPause: () => calls.push('pause'),
+		});
+		await flushEffects();
+
+		const handle = handleOf(wrapper);
+		handle.next();
+		await flushEffects();
+		await advanceTimers(1000);
+		handle.next();
+		await flushEffects();
+
+		expect(calls).toEqual(['end']);
+	});
+
 	it('没有幻灯片时不触发', async () => {
 		vi.useFakeTimers();
 		const onEnd = vi.fn();

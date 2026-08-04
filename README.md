@@ -209,8 +209,9 @@ import { Vegas } from 'vue3-vegas'
 
 - 只由**往后走到头**触发。`previous()` 退到第一张不算播完，不触发（与原版一致）。
 - 带的是**仍在显示的那一张**。原版这里传的是越界下标和 `undefined`，属于上游 bug，没有照搬。
-- 播完后播放确实停止了，所以 `onPause` 随后也会触发，顺序是 `onEnd` → `onPause`。
-  原版只触发 `end`；如果你只想处理一次，在 `onPause` 里判断一下即可。
+- **播完时如果本来正在自动播放**，播放确实停止了，所以 `onPause` 随后也会触发，
+  顺序是 `onEnd` → `onPause`；原版只触发 `end`。本来就是暂停状态（比如
+  `autoplay: false` 时手动 `next()` 到底）则只有 `onEnd`。
 - 播完之后再调 `next()` 会**再次**触发 `onEnd`（与原版一致）。要重播先 `goTo(0)` 再 `play()`。
 
 ### 调试
