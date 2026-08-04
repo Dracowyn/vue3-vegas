@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { sanitizeCssUrl } from '../utils/sanitizeUrl';
+import { VEGAS_LAYERS } from '../constants/layers';
 
 defineProps<{
 	backgroundUrl: string;
@@ -19,7 +20,7 @@ defineProps<{
 			backgroundImage: sanitizeCssUrl(backgroundUrl),
 			backgroundSize: 'cover',
 			backgroundPosition: 'center',
-			zIndex: 0,
+			zIndex: VEGAS_LAYERS.defaultBackground,
 			opacity: leaving ? 0 : 1,
 			transition: `opacity ${(transitionDuration || 1000) / 1000}s ease`,
 		}"

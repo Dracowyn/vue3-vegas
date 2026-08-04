@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { VEGAS_LAYERS } from '../constants/layers';
+
 withDefaults(defineProps<{
 	overlayColor?: string;
 }>(), {
@@ -15,6 +17,7 @@ withDefaults(defineProps<{
 			width: '100%',
 			height: '100%',
 			background: overlayColor,
+			zIndex: VEGAS_LAYERS.overlay,
 		}"
 	/>
 </template>

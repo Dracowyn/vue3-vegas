@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { VEGAS_LAYERS } from '../constants/layers';
+
 withDefaults(defineProps<{
 	loadProgress: number;
 	loadingText?: string;
@@ -16,7 +18,7 @@ withDefaults(defineProps<{
 			transform: 'translate(-50%, -50%)',
 			textAlign: 'center',
 			color: '#fff',
-			zIndex: 10,
+			zIndex: VEGAS_LAYERS.loader,
 			backgroundColor: 'rgba(0,0,0,0.5)',
 			padding: '20px',
 			borderRadius: '8px',

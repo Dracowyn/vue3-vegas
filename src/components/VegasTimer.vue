@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { VEGAS_LAYERS } from '../constants/layers';
+
 defineProps<{
 	currentOrderIndex: number;
 	totalSlides: number;
@@ -17,6 +19,7 @@ defineProps<{
 				? `${(currentOrderIndex / (totalSlides - 1)) * 100}%`
 				: '100%',
 			transition: 'width 0.5s linear',
+			zIndex: VEGAS_LAYERS.timer,
 		}"
 	/>
 </template>

@@ -1,4 +1,5 @@
 import { TRANSITION_PRESETS } from './transitionPresets';
+import { VEGAS_LAYERS } from '../constants/layers';
 
 export interface VegasTransitionHandlers {
 	onEnter: (el: Element, done: () => void) => void;
@@ -25,8 +26,9 @@ export const useAnimationVariants = (getTransitionDuration: () => number) => {
 
 		return {
 			onEnter: (el, done) => {
-				// 进入的幻灯片必须盖在离场的那张之上，不依赖 DOM 顺序的隐式层叠
-				applyStyles(el, { ...preset.from, zIndex: '1' });
+				// 进入的幻灯片必须盖在离场的那张之上，不依赖 DOM 顺序的隐式层叠。
+				// 该值动画结束后仍然保留，遮罩/进度条靠更高的 z-index 压住它（见 constants/layers.ts）。
+				applyStyles(el, { ...preset.from, zIndex: String(VEGAS_LAYERS.slideEntering) });
 				forceReflow(el);
 				applyStyles(el, {
 					...preset.to,
@@ -37,7 +39,7 @@ export const useAnimationVariants = (getTransitionDuration: () => number) => {
 			onLeave: (el, done) => {
 				// 离场固定用基础时长
 				const leaveDurationMs = getTransitionDuration();
-				applyStyles(el, { zIndex: '0' });
+				applyStyles(el, { zIndex: String(VEGAS_LAYERS.slideLeaving) });
 
 				// 无 out 的预设（原版 `X` 变体）：旧图保持不动，仅等待被移除
 				if (preset.out) {
