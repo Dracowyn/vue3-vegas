@@ -36,7 +36,8 @@ export interface VegasProps {
 	onInit?: () => void;
 	onPlay?: () => void;
 	onPause?: () => void;
-	onWalk?: () => void;
+	/** 每次切换幻灯片时触发，收到目标幻灯片的下标与配置 */
+	onWalk?: (index: number, slide: SlideProps) => void;
 }
 
 export interface SlideProps {
@@ -58,8 +59,17 @@ export interface SlideProps {
 }
 
 export interface VegasHandle {
-	previous: () => void;
-	next: () => void;
+	/** 切换到上一张，返回是否真的开始了切换 */
+	previous: () => boolean;
+	/** 切换到下一张，返回是否真的开始了切换 */
+	next: () => boolean;
+	/**
+	 * 跳转到指定下标（原版 Vegas 的 `jump`）。下标越界、目标就是当前幻灯片、
+	 * 或上一次切换动画尚未结束时不做任何事并返回 `false`。
+	 */
+	goTo: (index: number) => boolean;
+	/** 当前幻灯片在 `slides` 中的下标（shuffle 下也是真实下标，不是播放顺序位置） */
+	current: () => number;
 	play: () => void;
 	pause: () => void;
 }

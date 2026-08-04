@@ -199,7 +199,7 @@ import { Vegas } from 'vue3-vegas'
 | `onInit` | `() => void` | 组件挂载时触发一次 |
 | `onPlay` | `() => void` | 开始/恢复播放时触发 |
 | `onPause` | `() => void` | 暂停时触发 |
-| `onWalk` | `() => void` | 每次切换幻灯片时触发 |
+| `onWalk` | `(index: number, slide: SlideProps) => void` | 每次切换幻灯片时触发，收到目标幻灯片的下标与配置 |
 
 ### 调试
 
@@ -261,12 +261,67 @@ const vegas = ref<VegasHandle | null>(null)
 
 **VegasHandle 方法：**
 
-| 方法 | 说明 |
-|------|------|
-| `play()` | 开始/恢复自动播放 |
-| `pause()` | 暂停自动播放 |
-| `next()` | 切换到下一张 |
-| `previous()` | 切换到上一张 |
+| 方法 | 返回值 | 说明 |
+|------|--------|------|
+| `play()` | `void` | 开始/恢复自动播放 |
+| `pause()` | `void` | 暂停自动播放 |
+| `next()` | `boolean` | 切换到下一张 |
+| `previous()` | `boolean` | 切换到上一张 |
+| `goTo(index)` | `boolean` | 跳转到指定下标（原版 Vegas 的 `jump`） |
+| `current()` | `number` | 当前幻灯片在 `slides` 中的下标 |
+
+`next` / `previous` / `goTo` 返回是否真的开始了切换。下标越界、目标就是当前幻灯片、
+或上一次切换动画尚未结束时，它们不做任何事并返回 `false` —— 这三种情况在快速连点
+导航按钮时都会出现。
+
+`current()` 返回的始终是 `slides` 里的真实下标，`shuffle` 打乱播放顺序时也是如此。
+
+### 圆点导航
+
+`goTo` + `current()` + `onWalk` 组合起来就是一套指示器：
+
+```vue
+<script setup lang="ts">
+import { ref } from 'vue'
+import { Vegas } from 'vue3-vegas'
+import type { VegasHandle, SlideProps } from 'vue3-vegas'
+
+const slides: SlideProps[] = [
+  { src: '/img/1.jpg' },
+  { src: '/img/2.jpg' },
+  { src: '/img/3.jpg' },
+]
+
+const vegas = ref<VegasHandle | null>(null)
+const active = ref(0)
+</script>
+
+<template>
+  <div style="height: 100vh; position: relative">
+    <Vegas
+      ref="vegas"
+      :slides="slides"
+      :delay="5000"
+      :on-walk="(index) => (active = index)"
+    />
+    <nav style="position: absolute; bottom: 24px; left: 50%; z-index: 5">
+      <button
+        v-for="(slide, index) in slides"
+        :key="slide.src"
+        style="width: 22px; height: 3px; margin: 0 4px; border: 0"
+        :style="{ background: index === active ? '#fff' : 'rgba(255,255,255,.4)' }"
+        @click="vegas?.goTo(index)"
+      />
+    </nav>
+  </div>
+</template>
+```
+
+> 指示器写在 `<Vegas>` 之后即可。组件根元素带 `isolation: isolate`，内部图层
+> （含遮罩、进度条）不会溢出到宿主页面，兄弟节点默认就压在它上面。
+>
+> `onWalk` 只在**切换**时触发，首屏渲染不触发，所以 `active` 的初值要和
+> `slide` prop 保持一致（默认都是 `0`）。
 
 ---
 

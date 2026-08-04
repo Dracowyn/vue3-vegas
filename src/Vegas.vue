@@ -106,7 +106,9 @@ const vegasState = useVegasState(
 	() => props.shuffle,
 	() => isTransitioning.value,
 	() => log.value,
-	props.onWalk,
+	// 包一层而不是直接传 props.onWalk：props 的属性值在 setup 期只读一次，
+	// 直接传会把回调固定在挂载那一刻的引用上，之后换回调不再生效。
+	(index, slide) => props.onWalk?.(index, slide),
 	stopPlayback
 );
 
@@ -116,6 +118,7 @@ const {
 	visibleSlides,
 	next: stateNext,
 	previous: statePrevious,
+	goTo: stateGoTo,
 } = vegasState;
 
 // 锁需保持到本次切换的进入动画结束。进入动画用的是目标幻灯片的有效时长,
@@ -133,6 +136,10 @@ const startTransition = (transitionStarted: boolean) => {
 
 const next = () => startTransition(stateNext());
 const previous = () => startTransition(statePrevious());
+const goTo = (index: number) => startTransition(stateGoTo(index));
+
+/** 当前幻灯片在 `slides` 中的下标（原版 Vegas 的 `current`） */
+const current = () => currentSlide.value;
 
 const play = () => {
 	log.value('开始播放幻灯片');
@@ -311,6 +318,8 @@ onUnmounted(() => {
 defineExpose<VegasHandle>({
 	previous,
 	next,
+	goTo,
+	current,
 	play,
 	pause,
 });

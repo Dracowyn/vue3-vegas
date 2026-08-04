@@ -234,6 +234,49 @@ export const ManualControls: Story = {
 	},
 };
 
+export const DotNavigation: Story = {
+	name: 'Scenario/Dot Navigation',
+	render: (args) => ({
+		components: { Vegas },
+		setup() {
+			const vegasRef = ref<VegasHandle | null>(null);
+			// onWalk 只在切换时触发，首屏不触发，所以初值取 slide prop 的默认值
+			const active = ref(0);
+			const onWalk = (index: number) => {
+				active.value = index;
+			};
+			return { args, vegasRef, active, onWalk };
+		},
+		template: `
+			<div style="height: 100%; position: relative;">
+				<Vegas ref="vegasRef" v-bind="args" :on-walk="onWalk" />
+				<div style="position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); display: flex; gap: 8px;">
+					<button
+						v-for="(slide, index) in args.slides"
+						:key="index"
+						type="button"
+						:style="{
+							width: '22px', height: '3px', padding: 0, border: 0, cursor: 'pointer',
+							background: index === active ? '#fff' : 'rgba(255,255,255,.4)',
+						}"
+						@click="vegasRef?.goTo(index)"
+					/>
+				</div>
+				<div style="position: absolute; left: 24px; bottom: 24px; color: #fff; font: 13px/1.6 system-ui;">
+					current(): {{ active }}
+				</div>
+			</div>
+		`,
+	}),
+	args: {
+		...baseArgs,
+		slides: imageSources.map(src => ({ src })),
+		transition: 'fade2',
+		showLoading: false,
+		timer: false,
+	},
+};
+
 export const KenBurns: StoryObj<typeof Vegas> = {
 	args: {
 		...baseArgs,

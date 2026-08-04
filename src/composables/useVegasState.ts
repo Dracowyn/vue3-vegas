@@ -26,7 +26,7 @@ export const useVegasState = (
 	getShuffle: () => boolean,
 	getIsTransitioning: () => boolean,
 	log: () => Logger,
-	onWalk?: () => void,
+	onWalk?: (index: number, slide: SlideProps) => void,
 	stopPlayback?: () => void
 ) => {
 	const currentSlide = ref(getInitialSlide());
@@ -80,7 +80,7 @@ export const useVegasState = (
 			currentOrderIndex.value = nextOrderIndex;
 		}
 
-		onWalk?.();
+		onWalk?.(index, slides[index]);
 		return true;
 	};
 
