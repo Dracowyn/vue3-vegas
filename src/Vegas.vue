@@ -326,6 +326,7 @@ defineExpose<VegasHandle>({
 			height: '100%',
 			overflow: 'hidden',
 			backgroundColor: color || undefined,
+			isolation: 'isolate',
 		}"
 	>
 		<!-- 默认背景图层 -->

@@ -240,6 +240,23 @@ describe('Vegas', () => {
 		expect(overlayDiv).toBeTruthy();
 	});
 
+	it('isolates the root container into its own stacking context', async () => {
+		// 根容器必须创建独立层叠上下文，否则内部 z-index（overlay/timer/loader）
+		// 会与宿主页面的兄弟元素相互影响
+		const wrapper = mount(Vegas, {
+			props: {
+				slides: [slides[0]],
+				autoplay: false,
+				firstTransitionDuration: 0,
+			},
+		});
+
+		await flushEffects();
+
+		const container = wrapper.element as HTMLDivElement;
+		expect(container.style.isolation).toBe('isolate');
+	});
+
 	it('exposes next/previous/play/pause methods', async () => {
 		const wrapper = mount(Vegas, {
 			props: {
