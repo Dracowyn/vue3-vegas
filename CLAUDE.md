@@ -72,6 +72,27 @@ by [injectKeyframes.ts](src/utils/injectKeyframes.ts) from `onMounted`. They are
 the **inner** `img`/`video` inside `VegasSlideRenderer`, not the outer wrapper, so their
 `transform` does not fight the transition's `transform`.
 
+The `currentAnimationName` ref is only re-resolved when the `animationKey` computed changes
+(slide index + *requested* animation name + register pool). This keeps `'random'` from
+re-rolling on `phase` changes — which would restart a running Ken Burns from its 0% frame —
+while still letting `animation` / `animationRegister` / `slides[i].animation` take effect
+live. Never key that guard on the slide index alone.
+
+### Stacking and injected root styles
+[constants/layers.ts](src/constants/layers.ts) owns the single `z-index` scale
+(`slideLeaving 0 < slideEntering 1 < overlay 2 < timer 3 < loader 10`). All layers are
+siblings of one non-isolating root container, so the entering slide's `z-index: 1` — set by
+the enter hook and deliberately *kept* after the animation settles — would hide the overlay
+and timer if those did not sit above it. Add any new layer here, never with a literal.
+
+The six tuning CSS custom properties live in
+[constants/rootStyles.ts](src/constants/rootStyles.ts) and are injected via
+`injectRootStyles` from the same `onMounted`, scoped to `:where(.vue3-vegas-root)` (a class
+bound on the root element). They must **not** be inline styles: inline declarations beat any
+selector, so users could not override them. `:where()` drops the specificity to 0 so any user
+rule wins. This is safe ordering-wise because slides only render from the `firstSlide` phase,
+which is reached after every `onMounted` in the tree has run.
+
 ### Supporting composables
 - [useAutoplay.ts](src/composables/useAutoplay.ts) — watches `isPlaying`/`isTransitioning`/`currentSlide`; schedules a per-slide `delay` timer that calls `next()`.
 - [usePreload.ts](src/composables/usePreload.ts) — batched image preloading (`preloadImageBatch` concurrency) tracked in `loadedImages`/`loadProgress`, plus `<link rel="preload" as="video">` injection (cleaned up on unmount).
@@ -87,4 +108,10 @@ the **inner** `img`/`video` inside `VegasSlideRenderer`, not the outer wrapper, 
 
 ## Testing
 
-Vitest + `@vue/test-utils` in a `jsdom` environment ([vitest.config.ts](vitest.config.ts), setup in [tests/setup.ts](tests/setup.ts)). Tests rely heavily on **fake timers** (`vi.advanceTimersByTime`) to step the lifecycle/autoplay/transition timers — when adding timing-dependent behavior, drive it with the existing `advanceTimers`/`flushEffects` helpers in [tests/Vegas.test.ts](tests/Vegas.test.ts).
+Vitest + `@vue/test-utils` in a `jsdom` environment ([vitest.config.ts](vitest.config.ts), setup in [tests/setup.ts](tests/setup.ts)). Tests rely heavily on **fake timers** (`vi.advanceTimersByTime`) to step the lifecycle/autoplay/transition timers — when adding timing-dependent behavior, drive it with the shared `advanceTimers`/`flushEffects` helpers in [tests/helpers.ts](tests/helpers.ts).
+
+`@vue/test-utils` stubs `<TransitionGroup>` by default, so the JS enter/leave hooks do **not**
+run in most specs. [tests/transitionHooks.test.ts](tests/transitionHooks.test.ts) opts out per
+mount (`global.stubs: { transition: false, 'transition-group': false }`) to assert what the
+hooks actually write to the element. Keep that opt-out local — flipping it in
+[tests/setup.ts](tests/setup.ts) would perturb every other spec.

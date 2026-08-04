@@ -108,8 +108,8 @@ import { Vegas } from 'vue3-vegas'
 | `slideDown` | 从上向下滑入 |
 | `zoomIn` | 从 0 放大到原尺寸 |
 | `zoomOut` | 从 2 倍缩小到原尺寸 |
-| `swirlLeft` | 放大 + 顺时针旋转进入 |
-| `swirlRight` | 放大 + 逆时针旋转进入 |
+| `swirlLeft` | 从 2 倍缩小 + 逆时针旋转（`35deg` → `0deg`）进入 |
+| `swirlRight` | 从 2 倍缩小 + 顺时针旋转（`-35deg` → `0deg`）进入 |
 
 每个基础名都有一个 `2` 后缀变体（如 `fade2`、`swirlLeft2`）：
 
@@ -140,7 +140,22 @@ import { Vegas } from 'vue3-vegas'
 | `--vegas-blur-value` | `32px` | `blur` 过渡的模糊半径 |
 | `--vegas-swirl-degree` | `35deg` | `swirl` 过渡的旋转角度 |
 | `--vegas-swirl-scale` | `2` | `swirl` 过渡的缩放倍数 |
-| `--vegas-zoom-scale` | `2` | `zoomIn` / `zoomOut` 的缩放倍数 |
+| `--vegas-zoom-scale` | `2` | `zoomOut` 的起始缩放，以及 `zoomIn2` 旧图离场时的缩放 |
+
+这些默认值以特异度为 0 的规则注入，任意选择器都能覆盖——给 `<Vegas>` 加个类名即可：
+
+```vue
+<template>
+	<Vegas class="soft-effects" :slides="slides" transition="zoomOut" />
+</template>
+
+<style>
+.soft-effects {
+	--vegas-zoom-scale: 1.25;
+	--vegas-kenburns-scale: 1.2;
+}
+</style>
+```
 
 ### 默认背景
 
@@ -361,4 +376,9 @@ MIT
 2. **`zoomIn` 的缩放幅度**由 `scale(0.5) → scale(1)` 改为原版的 `scale(0) → scale(1)`。
 3. **`zoomOut` 的缩放幅度**由 `scale(1.25) → scale(1)` 改为原版的 `scale(2) → scale(1)`。
 
-`zoomInOut` 不受影响。想恢复旧的缩放幅度，覆盖 `--vegas-zoom-scale` 即可。
+`zoomInOut` 不受影响。
+
+关于 `--vegas-zoom-scale` 的适用范围，注意两点：
+
+- **`zoomOut` 可以调**：它的起始缩放就是这个变量，`--vegas-zoom-scale: 1.25` 即可回到 0.2.x 的观感。
+- **`zoomIn` 调不了**：`zoomIn` 的起点是硬编码的 `scale(0)`，这个变量只出现在它的离场状态里（即只对 `zoomIn2` 的旧图生效），无法用来恢复 0.2.x 的 `scale(0.5)`。想要更柔和的放大，请改用 `zoomInOut` 或自行包一层 CSS。
