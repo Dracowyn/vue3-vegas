@@ -92,7 +92,11 @@ const meta: Meta<typeof Vegas> = {
 	argTypes: {
 		transition: {
 			control: 'select',
-			options: ['fade', 'slideLeft', 'slideRight', 'zoomIn', 'zoomOut', 'zoomInOut'],
+			options: ['random', ...TRANSITION_NAMES],
+		},
+		animation: {
+			control: 'select',
+			options: [null, 'random', ...KEN_BURNS_NAMES],
 		},
 		align: {
 			control: 'inline-radio',
