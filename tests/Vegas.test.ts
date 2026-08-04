@@ -1,7 +1,8 @@
-import { mount, flushPromises } from '@vue/test-utils';
+import { mount } from '@vue/test-utils';
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { nextTick, ref } from 'vue';
+import { nextTick } from 'vue';
 import Vegas from '../src/Vegas.vue';
+import { advanceTimers, flushEffects } from './helpers';
 
 const slides = [
 	{ src: '/slide-1.jpg' },
@@ -19,17 +20,6 @@ const readSlideAnimation = (wrapper: ReturnType<typeof mount>, source: string) =
 	const img = wrapper.find(`img[src="${source}"]`);
 	expect(img.exists()).toBe(true);
 	return (img.element as HTMLImageElement).style.animation;
-};
-
-const advanceTimers = async (duration: number) => {
-	vi.advanceTimersByTime(duration);
-	await flushPromises();
-	await nextTick();
-};
-
-const flushEffects = async () => {
-	await flushPromises();
-	await nextTick();
 };
 
 describe('Vegas', () => {
@@ -400,13 +390,94 @@ describe('Vegas', () => {
 	it('exposes the vegas tuning CSS variables on the container', async () => {
 		const wrapper = mount(Vegas, {
 			props: { slides: [slides[0]], autoplay: false, firstTransitionDuration: 0 },
+			attachTo: document.body,
 		});
 
 		await flushEffects();
 
 		const container = wrapper.element as HTMLDivElement;
-		expect(container.style.getPropertyValue('--vegas-kenburns-scale')).toBe('1.5');
-		expect(container.style.getPropertyValue('--vegas-zoom-scale')).toBe('2');
+		const computed = window.getComputedStyle(container);
+		expect(computed.getPropertyValue('--vegas-kenburns-scale').trim()).toBe('1.5');
+		expect(computed.getPropertyValue('--vegas-zoom-scale').trim()).toBe('2');
+
+		// 必须来自样式表而不是行内声明，否则使用者无法覆盖
+		expect(container.style.getPropertyValue('--vegas-kenburns-scale')).toBe('');
+
+		wrapper.unmount();
+	});
+
+	it('lets a user stylesheet override the tuning CSS variables', async () => {
+		const userStyle = document.createElement('style');
+		userStyle.textContent = '.tuned{--vegas-zoom-scale:5}';
+		document.head.appendChild(userStyle);
+
+		const wrapper = mount(Vegas, {
+			props: { slides: [slides[0]], autoplay: false, firstTransitionDuration: 0 },
+			attrs: { class: 'tuned' },
+			attachTo: document.body,
+		});
+
+		await flushEffects();
+
+		const computed = window.getComputedStyle(wrapper.element as HTMLDivElement);
+		expect(computed.getPropertyValue('--vegas-zoom-scale').trim()).toBe('5');
+		// 未被覆盖的变量仍取默认值
+		expect(computed.getPropertyValue('--vegas-swirl-degree').trim()).toBe('35deg');
+
+		wrapper.unmount();
+	});
+
+	it('re-resolves the Ken Burns animation when the animation prop changes', async () => {
+		const wrapper = mount(Vegas, {
+			props: {
+				slides: [slides[0]],
+				autoplay: false,
+				firstTransitionDuration: 0,
+			},
+		});
+
+		await flushEffects();
+
+		// 初始未配置动画
+		expect(readSlideAnimation(wrapper, slides[0].src)).toBe('');
+
+		await wrapper.setProps({ animation: 'kenburnsUp' });
+		await flushEffects();
+
+		expect(readSlideAnimation(wrapper, slides[0].src)).toContain('vue3-vegas-kenburnsUp');
+
+		// 单张幻灯片场景下也要能继续改
+		await wrapper.setProps({ animation: 'kenburnsDown' });
+		await flushEffects();
+
+		expect(readSlideAnimation(wrapper, slides[0].src)).toContain('vue3-vegas-kenburnsDown');
+
+		// 关掉动画同样要生效
+		await wrapper.setProps({ animation: null });
+		await flushEffects();
+
+		expect(readSlideAnimation(wrapper, slides[0].src)).toBe('');
+	});
+
+	it('re-rolls a random animation when the register pool changes', async () => {
+		const wrapper = mount(Vegas, {
+			props: {
+				slides: [slides[0]],
+				autoplay: false,
+				animation: 'random',
+				animationRegister: ['kenburnsLeft'],
+				firstTransitionDuration: 0,
+			},
+		});
+
+		await flushEffects();
+
+		expect(readSlideAnimation(wrapper, slides[0].src)).toContain('vue3-vegas-kenburnsLeft');
+
+		await wrapper.setProps({ animationRegister: ['kenburnsRight'] });
+		await flushEffects();
+
+		expect(readSlideAnimation(wrapper, slides[0].src)).toContain('vue3-vegas-kenburnsRight');
 	});
 
 	it('keeps a random transition inside the register pool', async () => {

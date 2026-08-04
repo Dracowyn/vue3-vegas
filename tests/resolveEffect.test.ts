@@ -49,6 +49,17 @@ describe('resolveEffectName', () => {
 		expect(onUnknown).toHaveBeenCalledWith('nope');
 	});
 
+	it('validates the name picked out of the register pool', () => {
+		const onUnknown = vi.fn();
+		// register 里全是拼错的名字：不能静默产出死效果，必须回退并上报
+		expect(resolveEffectName('random', ['bulr'], ALL, 'fade', onUnknown)).toBe('fade');
+		expect(onUnknown).toHaveBeenCalledWith('bulr');
+	});
+
+	it('drops an unknown register pick when the fallback is null', () => {
+		expect(resolveEffectName('random', ['kenburnsUpp'], ALL, null)).toBe(null);
+	});
+
 	it('does not report for a known name', () => {
 		const onUnknown = vi.fn();
 		resolveEffectName('blur', undefined, ALL, 'fade', onUnknown);

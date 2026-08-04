@@ -13,7 +13,8 @@ import { useVegasState } from './composables/useVegasState';
 import { useVegasLifecycle } from './composables/useVegasLifecycle';
 import { useAutoplay } from './composables/useAutoplay';
 import { useVisibilityChange } from './composables/useVisibilityChange';
-import { injectKeyframes } from './utils/injectKeyframes';
+import { injectKeyframes, injectRootStyles } from './utils/injectKeyframes';
+import { VEGAS_ROOT_CLASS, VEGAS_ROOT_VARIABLES_CSS } from './constants/rootStyles';
 import { KEN_BURNS_KEYFRAMES_CSS, KEN_BURNS_NAMES } from './composables/kenBurnsPresets';
 import { TRANSITION_NAMES } from './composables/transitionPresets';
 import { resolveEffectDuration, resolveEffectName } from './utils/resolveEffect';
@@ -181,12 +182,12 @@ const getSlideTransitionDuration = (idx: number) => {
 // 该张幻灯片的有效停留时长，也是 animationDuration: 'auto' 的取值来源
 const getSlideDelay = (idx: number) => props.slides[idx]?.delay ?? props.delay;
 
-const getSlideAnimationName = (idx: number) => {
-	const slide = props.slides[idx];
-	const requested = slide?.animation ?? props.animation;
+// 该张幻灯片请求的动画名（可能是 `'random'`，此时还未抽取）
+const getRequestedAnimation = (idx: number) => props.slides[idx]?.animation ?? props.animation;
 
+const getSlideAnimationName = (idx: number) => {
 	return resolveEffectName(
-		requested,
+		getRequestedAnimation(idx),
 		props.animationRegister,
 		KEN_BURNS_NAMES,
 		null,
@@ -211,8 +212,18 @@ const currentTransitionName = ref(props.transition);
 // 避免 `'random'` 在每次渲染时重新抽取导致画面抖动。
 const currentAnimationName = ref<string | null>(null);
 
-// 记录动画名上次是为哪一张幻灯片解析的，-1 表示尚未解析过
-let resolvedAnimationSlide = -1;
+// 动画名的「解析依据」指纹：幻灯片下标 + 请求的动画名 + random 候选池。
+// 指纹没变就说明没有任何需要重解析的输入变化，直接沿用已解析的结果；
+// 同时它本身就是响应式来源——读它即可追踪到 animation / animationRegister /
+// slides[i].animation 的任何变化。
+const animationKey = computed(() =>
+	`${currentSlide.value}`
+	+ `|${getRequestedAnimation(currentSlide.value) ?? ''}`
+	+ `|${(props.animationRegister ?? []).join(',')}`
+);
+
+// 记录动画名上次是按哪份指纹解析的，null 表示尚未解析过
+let resolvedAnimationKey: string | null = null;
 
 // 两行的重算规则不同，原因如下：
 // - 过渡名依赖 phase（`isFirstTransition()` 决定是否用 firstTransition），必须跟着 phase 重算；
@@ -220,14 +231,15 @@ let resolvedAnimationSlide = -1;
 // - 动画名不依赖 phase，且它是绑定到媒体元素上的实时样式；phase 在
 //   firstSlide | playing | paused 之间变化时幻灯片始终挂载，若跟着重算，
 //   `'random'` 会抽到新名字并让 Ken Burns 从 0% 帧重新开始（暂停/切标签页时同样会触发）。
-//   所以只在幻灯片真正换了的时候才重新解析。
+//   所以只在指纹变化（换幻灯片，或 animation / animationRegister / 该张自己的 animation
+//   真的改了）时才重新解析——phase 变化不在指纹里，不会触发重抽。
 watch(
-	[currentSlide, phase],
+	[currentSlide, phase, animationKey],
 	() => {
 		currentTransitionName.value = getSlideTransitionName(currentSlide.value);
 
-		if (resolvedAnimationSlide !== currentSlide.value) {
-			resolvedAnimationSlide = currentSlide.value;
+		if (resolvedAnimationKey !== animationKey.value) {
+			resolvedAnimationKey = animationKey.value;
 			currentAnimationName.value = getSlideAnimationName(currentSlide.value);
 		}
 	},
@@ -279,7 +291,11 @@ watch(isTransitioning, (val) => {
 
 onMounted(() => {
 	log.value('Vegas组件开始初始化');
-	// keyframes 依赖 document，只能在挂载后注入（SSR / Nuxt 水合安全）
+	// 两份样式都依赖 document，只能在挂载后注入（SSR / Nuxt 水合安全）。
+	// 幻灯片要到 phase 变成 firstSlide 才渲染，而 phase 的推进发生在
+	// useVegasLifecycle 的 onMounted 里，且 DOM 更新会排到本轮所有 onMounted
+	// 之后的微任务，因此消费这些变量的元素一定晚于注入出现。
+	injectRootStyles(VEGAS_ROOT_VARIABLES_CSS);
 	injectKeyframes(KEN_BURNS_KEYFRAMES_CSS);
 	props.onInit?.();
 });
@@ -303,18 +319,13 @@ defineExpose<VegasHandle>({
 <template>
 	<div
 		v-if="slides.length > 0"
+		:class="VEGAS_ROOT_CLASS"
 		:style="{
 			position: 'relative',
 			width: '100%',
 			height: '100%',
 			overflow: 'hidden',
 			backgroundColor: color || undefined,
-			'--vegas-kenburns-scale': '1.5',
-			'--vegas-kenburns-translate': '10%',
-			'--vegas-blur-value': '32px',
-			'--vegas-swirl-degree': '35deg',
-			'--vegas-swirl-scale': '2',
-			'--vegas-zoom-scale': '2',
 		}"
 	>
 		<!-- 默认背景图层 -->

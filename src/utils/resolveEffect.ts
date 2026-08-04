@@ -19,10 +19,12 @@ export const resolveEffectName = (
 	onUnknown?: (name: string) => void
 ): string | null => {
 	if (!requested) return fallback;
-	if (requested === 'random') return pickRandomName(register, allNames);
-	if (allNames.includes(requested)) return requested;
 
-	onUnknown?.(requested);
+	// register 里可能有拼错的名字，抽到后同样要走校验，否则会静默产出一个死效果
+	const name = requested === 'random' ? pickRandomName(register, allNames) : requested;
+	if (allNames.includes(name)) return name;
+
+	onUnknown?.(name);
 	return fallback;
 };
 
