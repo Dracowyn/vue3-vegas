@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-`vue3-vegas` is a Vue 3 port of [Vegas.js](https://github.com/jaysalvat/vegas) — a full-screen slideshow / background component published as an ESM npm library. The single public export is the `<Vegas>` component (plus its TypeScript types). It supports image & video slides, six built-in transitions, preloading, shuffle, a default-background intro, and an imperative play/pause/next/previous handle.
+`vue3-vegas` is a Vue 3 port of [Vegas.js](https://github.com/jaysalvat/vegas) — a full-screen slideshow / background component published as an ESM npm library. The single public export is the `<Vegas>` component (plus its TypeScript types). It supports image & video slides, 27 built-in transitions plus 9 Ken Burns animations (both selectable via `'random'`), preloading, shuffle, a default-background intro, and an imperative play/pause/next/previous handle.
 
 Package manager is **pnpm**. Code comments and debug logs are written in Chinese; keep that convention when editing.
 
@@ -51,7 +51,26 @@ The derived helpers (`shouldRenderSlides`, `showDefaultBackground`, `isDefaultBa
 Owns which slide is visible and navigation. It maintains a `slideOrder` permutation array, `currentOrderIndex`, `currentSlide`, and `visibleSlides`. Navigation (`next`/`previous`/`goTo`) walks `slideOrder`, respects `loop`, and **re-shuffles on each loop wrap** (avoiding repeating the slide that just played). `next`/`previous` return a boolean indicating whether a transition actually started; `Vegas.vue` uses that to set the `isTransitioning` lock.
 
 ### Transition system — [useAnimationVariants.ts](src/composables/useAnimationVariants.ts)
-Uses Vue's `<TransitionGroup :css="false">` with **JS enter/leave hooks** (a deliberate port of React's AnimatePresence approach). Each named variant (`fade`, `slideLeft`, `slideRight`, `zoomIn`, `zoomOut`, `zoomInOut`) is a factory returning `onEnter`/`onLeave` that imperatively set element styles and call `forceReflow` (a `offsetHeight` read — more reliable than `requestAnimationFrame` during hydration). Because TransitionGroup hooks receive the raw DOM element (not props), the per-slide transition **name and duration are passed via `data-transition-name` / `data-transition-duration` attributes** and read back off the element in the hook.
+Uses Vue's `<TransitionGroup :css="false">` with **JS enter/leave hooks**. The effects
+themselves live as pure data in [transitionPresets.ts](src/composables/transitionPresets.ts):
+13 base presets (`from` / `to` / `out`), each derived into a `X` variant (incoming slide
+only) and a `X2` variant (incoming enters while outgoing leaves), plus the vue3-vegas-only
+`zoomInOut` — 27 names total, ported verbatim from the original `vegas.css`.
+`useAnimationVariants` is a generic executor: `getHandlers(name, enterDurationMs)` reads the
+preset and imperatively applies styles, calling `forceReflow` (an `offsetHeight` read — more
+reliable than `requestAnimationFrame` during hydration) between the `from` and `to` states.
+
+The per-slide transition **name and duration reach the enter hook via
+`data-transition-name` / `data-transition-duration`** attributes, since TransitionGroup hooks
+receive the raw DOM element rather than props. The **leave** hook instead reads
+`currentTransitionName` off a ref — the leaving element still carries the *previous* slide's
+attributes, but Vegas semantics say enter and leave share the *incoming* slide's transition.
+
+Ken Burns animations are separate: 9 `@keyframes` blocks
+([kenBurnsPresets.ts](src/composables/kenBurnsPresets.ts)) injected once into `document.head`
+by [injectKeyframes.ts](src/utils/injectKeyframes.ts) from `onMounted`. They are applied to
+the **inner** `img`/`video` inside `VegasSlideRenderer`, not the outer wrapper, so their
+`transform` does not fight the transition's `transform`.
 
 ### Supporting composables
 - [useAutoplay.ts](src/composables/useAutoplay.ts) — watches `isPlaying`/`isTransitioning`/`currentSlide`; schedules a per-slide `delay` timer that calls `next()`.

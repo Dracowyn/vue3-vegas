@@ -9,7 +9,9 @@
 ## 特性
 
 - 图片 & 视频幻灯片支持
-- 6 种内置过渡效果（fade、slideLeft、slideRight、zoomIn、zoomOut、zoomInOut）
+- 26 种内置过渡效果，与原版 Vegas.js 一一对应
+- 9 种 Ken Burns 缓慢推拉镜头动画
+- `transition` / `animation` 支持 `'random'`，可用 register 限定候选池
 - 每张幻灯片可独立配置过渡效果、时长、延迟
 - 默认背景图，与第一张幻灯片交叉淡入过渡
 - 随机播放（shuffle）
@@ -93,14 +95,52 @@ import { Vegas } from 'vue3-vegas'
 
 **可用过渡效果：**
 
-| 值 | 说明 |
+| 基础名 | 说明 |
 |----|------|
-| `fade` | 淡入淡出 |
+| `fade` | 淡入 |
+| `blur` | 由模糊转清晰 |
+| `flash` | 高亮闪白进入 |
+| `negative` | 由负片反相转正常 |
+| `burn` | 由高对比高饱和转正常 |
 | `slideLeft` | 从右向左滑入 |
 | `slideRight` | 从左向右滑入 |
-| `zoomIn` | 从小放大进入（scale 0.5 → 1） |
-| `zoomOut` | 从大缩小进入（scale 1.25 → 1） |
-| `zoomInOut` | 进入后持续缓慢放大（scale 1 → 1.25） |
+| `slideUp` | 从下向上滑入 |
+| `slideDown` | 从上向下滑入 |
+| `zoomIn` | 从 0 放大到原尺寸 |
+| `zoomOut` | 从 2 倍缩小到原尺寸 |
+| `swirlLeft` | 放大 + 顺时针旋转进入 |
+| `swirlRight` | 放大 + 逆时针旋转进入 |
+
+每个基础名都有一个 `2` 后缀变体（如 `fade2`、`swirlLeft2`）：
+
+- **无后缀**（`fade`）：只有新幻灯片做动画，旧的原地等待被移除。
+- **带 `2` 后缀**（`fade2`）：新幻灯片进入的同时，旧的也做反向离场动画。
+
+另有 `zoomInOut`（进入后持续缓慢放大）——这是 vue3-vegas 的自有扩展，不属于原版。
+
+### Ken Burns 动画
+
+| Prop | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `animation` | `string \| null` | `null` | Ken Burns 动画名，`null` 表示不启用 |
+| `animationDuration` | `number \| 'auto'` | `'auto'` | 动画时长（ms）。`'auto'` 取该张幻灯片的 `delay` |
+| `transitionRegister` | `string[]` | — | 限定 `transition: 'random'` 的候选池 |
+| `animationRegister` | `string[]` | — | 限定 `animation: 'random'` 的候选池 |
+
+可用动画：`kenburns`、`kenburnsUp`、`kenburnsDown`、`kenburnsLeft`、`kenburnsRight`、`kenburnsUpLeft`、`kenburnsUpRight`、`kenburnsDownLeft`、`kenburnsDownRight`。
+
+### 效果强度调节
+
+组件在根容器上挂了 6 个 CSS 变量，覆盖它们即可调整效果强度：
+
+| 变量 | 默认值 | 影响 |
+|------|--------|------|
+| `--vegas-kenburns-scale` | `1.5` | Ken Burns 起始缩放 |
+| `--vegas-kenburns-translate` | `10%` | Ken Burns 平移距离 |
+| `--vegas-blur-value` | `32px` | `blur` 过渡的模糊半径 |
+| `--vegas-swirl-degree` | `35deg` | `swirl` 过渡的旋转角度 |
+| `--vegas-swirl-scale` | `2` | `swirl` 过渡的缩放倍数 |
+| `--vegas-zoom-scale` | `2` | `zoomIn` / `zoomOut` 的缩放倍数 |
 
 ### 默认背景
 
@@ -167,6 +207,8 @@ interface SlideProps {
   valign?: 'top' | 'center' | 'bottom' // 垂直对齐，覆盖全局 valign
   transition?: string | null            // 过渡效果，覆盖全局 transition
   transitionDuration?: number | null    // 过渡时长（ms），覆盖全局 transitionDuration
+  animation?: string | null             // Ken Burns 动画名，覆盖全局 animation
+  animationDuration?: number | 'auto' | null // 动画时长（ms），覆盖全局 animationDuration
   cover?: boolean                       // 填充模式，覆盖全局 cover
   video?: {
     src: string[]    // 视频文件列表（建议同时提供 .mp4 / .webm）
@@ -307,3 +349,16 @@ pnpm test
 ## License
 
 MIT
+
+---
+
+## 从 0.2.x 升级到 0.3.0
+
+0.3.0 让过渡效果严格对齐原版 Vegas.js 的语义，有三处观感变化：
+
+1. **`fade`、`slideLeft`、`slideRight`、`zoomIn`、`zoomOut` 不再让旧幻灯片做离场动画。**
+   想保留 0.2.x 的双向效果，把名字改成带 `2` 后缀的版本即可，例如 `fade` → `fade2`。
+2. **`zoomIn` 的缩放幅度**由 `scale(0.5) → scale(1)` 改为原版的 `scale(0) → scale(1)`。
+3. **`zoomOut` 的缩放幅度**由 `scale(1.25) → scale(1)` 改为原版的 `scale(2) → scale(1)`。
+
+`zoomInOut` 不受影响。想恢复旧的缩放幅度，覆盖 `--vegas-zoom-scale` 即可。

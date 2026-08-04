@@ -2,8 +2,10 @@ import { ref } from 'vue';
 import type { Meta, StoryObj } from 'storybook-vue3-rsbuild';
 import Vegas from '../src/Vegas.vue';
 import type { SlideProps, VegasProps, VegasHandle } from '../src/types';
+import { TRANSITION_NAMES } from '../src/composables/transitionPresets';
+import { KEN_BURNS_NAMES } from '../src/composables/kenBurnsPresets';
 
-type TransitionName = 'fade' | 'slideLeft' | 'slideRight' | 'zoomIn' | 'zoomOut' | 'zoomInOut';
+type TransitionName = string;
 
 const imageSources = [
 	'https://images.unsplash.com/photo-1506744038136-46273834b3fb',
@@ -225,5 +227,26 @@ export const ManualControls: Story = {
 		autoplay: false,
 		showLoading: false,
 		timer: false,
+	},
+};
+
+export const KenBurns: StoryObj<typeof Vegas> = {
+	args: {
+		...baseArgs,
+		transition: 'fade',
+		animation: 'kenburnsUpLeft',
+		animationDuration: 'auto',
+		slides: imageSources.map(src => ({ src })),
+	},
+};
+
+export const RandomEffects: StoryObj<typeof Vegas> = {
+	args: {
+		...baseArgs,
+		transition: 'random',
+		transitionRegister: [...TRANSITION_NAMES],
+		animation: 'random',
+		animationRegister: [...KEN_BURNS_NAMES],
+		slides: imageSources.map(src => ({ src })),
 	},
 };
