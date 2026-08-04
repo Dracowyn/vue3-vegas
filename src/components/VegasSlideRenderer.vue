@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import type { CSSProperties } from 'vue';
 import type { SlideProps, Logger } from '../types';
+import { KEN_BURNS_ANIMATION_PREFIX } from '../composables/kenBurnsPresets';
 
 const props = defineProps<{
 	slide: SlideProps;
@@ -10,6 +11,8 @@ const props = defineProps<{
 	align: string;
 	valign: string;
 	color: string | null;
+	animationName: string | null;
+	animationDuration: number;
 	isMediaPlaying: boolean;
 	canAdvance: boolean;
 	next: () => void;
@@ -32,16 +35,29 @@ const surfaceStyle = computed<CSSProperties>(() => ({
 	backgroundColor: props.slide.color || props.color || undefined,
 }));
 
+// Ken Burns 挂在内层媒体上,与外层 wrapper 的过渡 transform 互不覆盖。
+// 用 forwards 保持结束状态,避免动画短于 delay 时画面回弹。
+const animationStyle = computed<CSSProperties>(() =>
+	props.animationName
+		? {
+			animation: `${KEN_BURNS_ANIMATION_PREFIX}${props.animationName} `
+				+ `${props.animationDuration}ms ease-out forwards`,
+		}
+		: {}
+);
+
 const videoStyle = computed<CSSProperties>(() => ({
 	...surfaceStyle.value,
 	objectFit: mediaFit.value,
 	objectPosition: mediaPosition.value,
+	...animationStyle.value,
 }));
 
 const imgStyle = computed<CSSProperties>(() => ({
 	...surfaceStyle.value,
 	objectFit: mediaFit.value,
 	objectPosition: mediaPosition.value,
+	...animationStyle.value,
 }));
 
 // Control video play/pause

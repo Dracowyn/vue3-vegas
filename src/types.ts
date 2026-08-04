@@ -21,6 +21,12 @@ export interface VegasProps {
 	firstTransitionDuration?: number;
 	transition?: string;
 	transitionDuration?: number;
+	animation?: string | null;
+	animationDuration?: number | 'auto';
+	/** 限定 `transition: 'random'` 的候选池；缺省时从全部内置过渡中选 */
+	transitionRegister?: string[];
+	/** 限定 `animation: 'random'` 的候选池；缺省时从全部内置动画中选 */
+	animationRegister?: string[];
 	defaultBackground?: string;
 	defaultBackgroundDuration?: number;
 	loadingText?: string;
@@ -41,6 +47,8 @@ export interface SlideProps {
 	valign?: 'top' | 'center' | 'bottom';
 	transition?: string | null;
 	transitionDuration?: number | null;
+	animation?: string | null;
+	animationDuration?: number | 'auto' | null;
 	cover?: boolean;
 	video?: {
 		src: string[];

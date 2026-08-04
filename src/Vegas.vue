@@ -13,6 +13,10 @@ import { useVegasState } from './composables/useVegasState';
 import { useVegasLifecycle } from './composables/useVegasLifecycle';
 import { useAutoplay } from './composables/useAutoplay';
 import { useVisibilityChange } from './composables/useVisibilityChange';
+import { injectKeyframes } from './utils/injectKeyframes';
+import { KEN_BURNS_KEYFRAMES_CSS, KEN_BURNS_NAMES } from './composables/kenBurnsPresets';
+import { TRANSITION_NAMES } from './composables/transitionPresets';
+import { resolveEffectDuration, resolveEffectName } from './utils/resolveEffect';
 
 const props = withDefaults(defineProps<VegasProps>(), {
 	slide: 0,
@@ -36,6 +40,10 @@ const props = withDefaults(defineProps<VegasProps>(), {
 	firstTransitionDuration: 3000,
 	transition: 'fade',
 	transitionDuration: 1000,
+	animation: null,
+	animationDuration: 'auto',
+	transitionRegister: undefined,
+	animationRegister: undefined,
 	defaultBackground: undefined,
 	defaultBackgroundDuration: 3000,
 	loadingText: undefined,
@@ -150,8 +158,18 @@ useVisibilityChange(isPlaying, play, pause, () => log.value);
 // Compute slide transition info (stored as data attrs for TransitionGroup hooks)
 const getSlideTransitionName = (idx: number) => {
 	const slide = props.slides[idx];
-	if (isFirstTransition() && props.firstTransition) return props.firstTransition;
-	return slide?.transition || props.transition;
+	const requested = (isFirstTransition() && props.firstTransition)
+		? props.firstTransition
+		: (slide?.transition || props.transition);
+
+	// fallback 传的是非空的 'fade'，因此结果一定是 string
+	return resolveEffectName(
+		requested,
+		props.transitionRegister,
+		TRANSITION_NAMES,
+		'fade',
+		name => logWarn.value(`未知的过渡效果「${name}」，回退到 fade`)
+	) as string;
 };
 
 const getSlideTransitionDuration = (idx: number) => {
@@ -160,13 +178,45 @@ const getSlideTransitionDuration = (idx: number) => {
 	return slide?.transitionDuration || props.transitionDuration;
 };
 
+// 该张幻灯片的有效停留时长，也是 animationDuration: 'auto' 的取值来源
+const getSlideDelay = (idx: number) => props.slides[idx]?.delay ?? props.delay;
+
+const getSlideAnimationName = (idx: number) => {
+	const slide = props.slides[idx];
+	const requested = slide?.animation ?? props.animation;
+
+	return resolveEffectName(
+		requested,
+		props.animationRegister,
+		KEN_BURNS_NAMES,
+		null,
+		name => logWarn.value(`未知的动画效果「${name}」，已忽略`)
+	);
+};
+
+const getSlideAnimationDuration = (idx: number) => {
+	const slide = props.slides[idx];
+	return resolveEffectDuration(
+		slide?.animationDuration ?? props.animationDuration,
+		getSlideDelay(idx),
+		getSlideDelay(idx)
+	);
+};
+
 // 本次切换使用的过渡名。原版语义：进入与离开共用「目标幻灯片」的过渡，
 // 因此离场钩子不能从离场元素上读 data 属性（那是上一张的过渡名）。
 const currentTransitionName = ref(props.transition);
 
+// 本次切换使用的 Ken Burns 动画名。与过渡名同理，用 ref 缓存，
+// 避免 `'random'` 在每次渲染时重新抽取导致画面抖动。
+const currentAnimationName = ref<string | null>(null);
+
 watch(
 	[currentSlide, phase],
-	() => { currentTransitionName.value = getSlideTransitionName(currentSlide.value); },
+	() => {
+		currentTransitionName.value = getSlideTransitionName(currentSlide.value);
+		currentAnimationName.value = getSlideAnimationName(currentSlide.value);
+	},
 	{ immediate: true }
 );
 
@@ -215,6 +265,8 @@ watch(isTransitioning, (val) => {
 
 onMounted(() => {
 	log.value('Vegas组件开始初始化');
+	// keyframes 依赖 document，只能在挂载后注入（SSR / Nuxt 水合安全）
+	injectKeyframes(KEN_BURNS_KEYFRAMES_CSS);
 	props.onInit?.();
 });
 
@@ -243,6 +295,12 @@ defineExpose<VegasHandle>({
 			height: '100%',
 			overflow: 'hidden',
 			backgroundColor: color || undefined,
+			'--vegas-kenburns-scale': '1.5',
+			'--vegas-kenburns-translate': '10%',
+			'--vegas-blur-value': '32px',
+			'--vegas-swirl-degree': '35deg',
+			'--vegas-swirl-scale': '2',
+			'--vegas-zoom-scale': '2',
 		}"
 	>
 		<!-- 默认背景图层 -->
@@ -273,6 +331,8 @@ defineExpose<VegasHandle>({
 				:align="align"
 				:valign="valign"
 				:color="color"
+				:animation-name="currentAnimationName"
+				:animation-duration="getSlideAnimationDuration(idx)"
 				:is-media-playing="phase !== 'paused'"
 				:can-advance="phase === 'playing'"
 				:next="next"

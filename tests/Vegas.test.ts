@@ -353,4 +353,70 @@ describe('Vegas', () => {
 		expect(img.exists()).toBe(true);
 		expect(img.attributes('aria-hidden')).toBe('true');
 	});
+
+	it('applies a Ken Burns animation to the slide media', async () => {
+		const wrapper = mount(Vegas, {
+			props: {
+				slides: [slides[0]],
+				autoplay: false,
+				animation: 'kenburnsUp',
+				animationDuration: 4000,
+				firstTransitionDuration: 0,
+			},
+		});
+
+		await flushEffects();
+
+		const img = wrapper.find(`img[src="${slides[0].src}"]`);
+		expect(img.exists()).toBe(true);
+		expect((img.element as HTMLImageElement).style.animation)
+			.toContain('vue3-vegas-kenburnsUp');
+	});
+
+	it('injects the Ken Burns keyframes exactly once for two instances', async () => {
+		document.head.querySelectorAll('style[data-vue3-vegas-keyframes]')
+			.forEach(node => node.remove());
+
+		mount(Vegas, {
+			props: { slides: [slides[0]], autoplay: false, firstTransitionDuration: 0 },
+		});
+		mount(Vegas, {
+			props: { slides: [slides[1]], autoplay: false, firstTransitionDuration: 0 },
+		});
+
+		await flushEffects();
+
+		expect(document.head.querySelectorAll('style[data-vue3-vegas-keyframes]'))
+			.toHaveLength(1);
+	});
+
+	it('exposes the vegas tuning CSS variables on the container', async () => {
+		const wrapper = mount(Vegas, {
+			props: { slides: [slides[0]], autoplay: false, firstTransitionDuration: 0 },
+		});
+
+		await flushEffects();
+
+		const container = wrapper.element as HTMLDivElement;
+		expect(container.style.getPropertyValue('--vegas-kenburns-scale')).toBe('1.5');
+		expect(container.style.getPropertyValue('--vegas-zoom-scale')).toBe('2');
+	});
+
+	it('keeps a random transition inside the register pool', async () => {
+		const wrapper = mount(Vegas, {
+			props: {
+				slides,
+				autoplay: false,
+				transition: 'random',
+				transitionRegister: ['blur', 'swirlLeft'],
+				firstTransitionDuration: 0,
+			},
+		});
+
+		await flushEffects();
+
+		const slideEl = wrapper.find('[data-transition-name]');
+		expect(slideEl.exists()).toBe(true);
+		expect(['blur', 'swirlLeft']).toContain(slideEl.attributes('data-transition-name'));
+	});
 });
