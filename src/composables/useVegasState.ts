@@ -27,7 +27,8 @@ export const useVegasState = (
 	getIsTransitioning: () => boolean,
 	log: () => Logger,
 	onWalk?: (index: number, slide: SlideProps) => void,
-	stopPlayback?: () => void
+	stopPlayback?: () => void,
+	onEnd?: (index: number, slide: SlideProps) => void
 ) => {
 	const currentSlide = ref(getInitialSlide());
 	const slideOrder = ref<number[]>([]);
@@ -113,6 +114,10 @@ export const useVegasState = (
 				nextOrderIndex = 0;
 			} else {
 				log()('到达最后一张,停止播放');
+				// 播完的语义只属于「往后走到头」。onEnd 先于 stopPlayback 触发的
+				// onPause——后者要等 phase 的 watcher 冲刷，天然排在后面。
+				const lastSlide = currentSlide.value;
+				onEnd?.(lastSlide, getSlides()[lastSlide]);
 				stopPlayback?.();
 				return false;
 			}

@@ -197,9 +197,21 @@ import { Vegas } from 'vue3-vegas'
 | Prop | 类型 | 说明 |
 |------|------|------|
 | `onInit` | `() => void` | 组件挂载时触发一次 |
-| `onPlay` | `() => void` | 开始/恢复播放时触发 |
-| `onPause` | `() => void` | 暂停时触发 |
-| `onWalk` | `(index: number, slide: SlideProps) => void` | 每次切换幻灯片时触发，收到目标幻灯片的下标与配置 |
+| `onPlay` | `(index: number, slide: SlideProps) => void` | 开始/恢复播放时触发 |
+| `onPause` | `(index: number, slide: SlideProps) => void` | 暂停时触发 |
+| `onWalk` | `(index: number, slide: SlideProps) => void` | 每次切换幻灯片时触发 |
+| `onEnd` | `(index: number, slide: SlideProps) => void` | `loop: false` 时播完最后一张触发 |
+
+除 `onInit` 外都收到当前（对 `onWalk` 是目标）幻灯片的下标与配置。`slides` 为空时
+这几个回调都不触发。
+
+关于 `onEnd`：
+
+- 只由**往后走到头**触发。`previous()` 退到第一张不算播完，不触发（与原版一致）。
+- 带的是**仍在显示的那一张**。原版这里传的是越界下标和 `undefined`，属于上游 bug，没有照搬。
+- 播完后播放确实停止了，所以 `onPause` 随后也会触发，顺序是 `onEnd` → `onPause`。
+  原版只触发 `end`；如果你只想处理一次，在 `onPause` 里判断一下即可。
+- 播完之后再调 `next()` 会**再次**触发 `onEnd`（与原版一致）。要重播先 `goTo(0)` 再 `play()`。
 
 ### 调试
 
@@ -265,6 +277,8 @@ const vegas = ref<VegasHandle | null>(null)
 |------|--------|------|
 | `play()` | `void` | 开始/恢复自动播放 |
 | `pause()` | `void` | 暂停自动播放 |
+| `toggle()` | `void` | 在播放与暂停之间切换 |
+| `playing()` | `boolean` | 是否正在自动播放，与 `onPlay` / `onPause` 的时机一致 |
 | `next()` | `boolean` | 切换到下一张 |
 | `previous()` | `boolean` | 切换到上一张 |
 | `goTo(index)` | `boolean` | 跳转到指定下标（原版 Vegas 的 `jump`） |

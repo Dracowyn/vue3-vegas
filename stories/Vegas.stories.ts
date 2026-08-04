@@ -220,6 +220,7 @@ export const ManualControls: Story = {
 					<button type="button" @click="vegasRef?.previous()">Previous</button>
 					<button type="button" @click="vegasRef?.play()">Play</button>
 					<button type="button" @click="vegasRef?.pause()">Pause</button>
+					<button type="button" @click="vegasRef?.toggle()">Toggle</button>
 					<button type="button" @click="vegasRef?.next()">Next</button>
 				</div>
 			</div>

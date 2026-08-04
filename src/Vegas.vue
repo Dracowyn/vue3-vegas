@@ -54,6 +54,7 @@ const props = withDefaults(defineProps<VegasProps>(), {
 	onPlay: undefined,
 	onPause: undefined,
 	onWalk: undefined,
+	onEnd: undefined,
 });
 
 const isTransitioning = ref(false);
@@ -109,7 +110,8 @@ const vegasState = useVegasState(
 	// 包一层而不是直接传 props.onWalk：props 的属性值在 setup 期只读一次，
 	// 直接传会把回调固定在挂载那一刻的引用上，之后换回调不再生效。
 	(index, slide) => props.onWalk?.(index, slide),
-	stopPlayback
+	stopPlayback,
+	(index, slide) => props.onEnd?.(index, slide)
 );
 
 const {
@@ -149,6 +151,16 @@ const play = () => {
 const pause = () => {
 	log.value('暂停播放幻灯片');
 	stopPlayback();
+};
+
+const playing = () => isPlaying();
+
+const toggle = () => {
+	if (isPlaying()) {
+		pause();
+	} else {
+		play();
+	}
 };
 
 useAutoplay(
@@ -269,11 +281,15 @@ const handleSlideLeave = (el: Element, done: () => void) => {
 let previousPhase: string | null = null;
 watch(phase, (newPhase) => {
 	if (previousPhase !== newPhase) {
-		if (newPhase === 'playing') {
-			props.onPlay?.();
-		}
-		if (newPhase === 'paused' && previousPhase === 'playing') {
-			props.onPause?.();
+		// 没有幻灯片时无所谓播放与暂停，也拿不出回调要带的那一张
+		const slide = props.slides[currentSlide.value];
+		if (slide) {
+			if (newPhase === 'playing') {
+				props.onPlay?.(currentSlide.value, slide);
+			}
+			if (newPhase === 'paused' && previousPhase === 'playing') {
+				props.onPause?.(currentSlide.value, slide);
+			}
 		}
 		previousPhase = newPhase;
 	}
@@ -322,6 +338,8 @@ defineExpose<VegasHandle>({
 	current,
 	play,
 	pause,
+	toggle,
+	playing,
 });
 </script>
 
