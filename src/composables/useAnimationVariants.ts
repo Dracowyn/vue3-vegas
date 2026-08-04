@@ -1,154 +1,56 @@
-export interface AnimationConfig {
-	duration: number;
-}
+import { TRANSITION_PRESETS } from './transitionPresets';
 
 export interface VegasTransitionHandlers {
 	onEnter: (el: Element, done: () => void) => void;
 	onLeave: (el: Element, done: () => void) => void;
 }
 
-type TransitionFactory = (config: AnimationConfig) => VegasTransitionHandlers;
-
-export type VegasVariants = Record<string, TransitionFactory>;
-
 export const useAnimationVariants = (getTransitionDuration: () => number) => {
 	const applyStyles = (el: Element, styles: Record<string, string>) => {
-		const htmlEl = el as HTMLElement;
-		Object.assign(htmlEl.style, styles);
+		Object.assign((el as HTMLElement).style, styles);
 	};
 
-	// Force a reflow so the browser registers the initial style before
-	// the transition target is applied.  More reliable than a single
-	// requestAnimationFrame, especially during Nuxt/SSR hydration.
+	// 强制回流，让浏览器先记住初始样式再应用目标样式。
+	// 比单次 requestAnimationFrame 更可靠，尤其在 Nuxt/SSR hydration 期间。
 	const forceReflow = (el: Element) => {
 		void (el as HTMLElement).offsetHeight;
 	};
 
-	const variants: VegasVariants = {
-		fade: (config: AnimationConfig) => ({
+	// 只为预设里真正出现的属性生成 transition 简写，避免波及 z-index 等辅助属性
+	const buildTransitionShorthand = (styles: Record<string, string>, durationMs: number) =>
+		Object.keys(styles).map(property => `${property} ${durationMs}ms`).join(', ');
+
+	const getHandlers = (name: string, enterDurationMs: number): VegasTransitionHandlers => {
+		const preset = TRANSITION_PRESETS[name] ?? TRANSITION_PRESETS.fade;
+
+		return {
 			onEnter: (el, done) => {
-				applyStyles(el, { opacity: '0' });
+				// 进入的幻灯片必须盖在离场的那张之上，不依赖 DOM 顺序的隐式层叠
+				applyStyles(el, { ...preset.from, zIndex: '1' });
 				forceReflow(el);
 				applyStyles(el, {
-					opacity: '1',
-					transition: `opacity ${config.duration}s`,
+					...preset.to,
+					transition: buildTransitionShorthand(preset.to, enterDurationMs),
 				});
-				setTimeout(done, config.duration * 1000);
+				setTimeout(done, enterDurationMs);
 			},
 			onLeave: (el, done) => {
-				applyStyles(el, {
-					opacity: '0',
-					transition: `opacity ${getTransitionDuration() / 1000}s`,
-				});
-				setTimeout(done, getTransitionDuration());
+				// 离场固定用基础时长
+				const leaveDurationMs = getTransitionDuration();
+				applyStyles(el, { zIndex: '0' });
+
+				// 无 out 的预设（原版 `X` 变体）：旧图保持不动，仅等待被移除
+				if (preset.out) {
+					applyStyles(el, {
+						...preset.out,
+						transition: buildTransitionShorthand(preset.out, leaveDurationMs),
+					});
+				}
+
+				setTimeout(done, leaveDurationMs);
 			},
-		}),
-		slideLeft: (config: AnimationConfig) => ({
-			onEnter: (el, done) => {
-				applyStyles(el, { transform: 'translateX(100%)', opacity: '0' });
-				forceReflow(el);
-				applyStyles(el, {
-					transform: 'translateX(0)',
-					opacity: '1',
-					transition: `transform ${config.duration}s, opacity ${config.duration}s`,
-				});
-				setTimeout(done, config.duration * 1000);
-			},
-			onLeave: (el, done) => {
-				const dur = getTransitionDuration() / 1000;
-				applyStyles(el, {
-					transform: 'translateX(-100%)',
-					opacity: '0',
-					transition: `transform ${dur}s, opacity ${dur}s`,
-				});
-				setTimeout(done, getTransitionDuration());
-			},
-		}),
-		slideRight: (config: AnimationConfig) => ({
-			onEnter: (el, done) => {
-				applyStyles(el, { transform: 'translateX(-100%)', opacity: '0' });
-				forceReflow(el);
-				applyStyles(el, {
-					transform: 'translateX(0)',
-					opacity: '1',
-					transition: `transform ${config.duration}s, opacity ${config.duration}s`,
-				});
-				setTimeout(done, config.duration * 1000);
-			},
-			onLeave: (el, done) => {
-				const dur = getTransitionDuration() / 1000;
-				applyStyles(el, {
-					transform: 'translateX(100%)',
-					opacity: '0',
-					transition: `transform ${dur}s, opacity ${dur}s`,
-				});
-				setTimeout(done, getTransitionDuration());
-			},
-		}),
-		zoomIn: (config: AnimationConfig) => ({
-			onEnter: (el, done) => {
-				applyStyles(el, { transform: 'scale(0.5)', opacity: '0' });
-				forceReflow(el);
-				applyStyles(el, {
-					transform: 'scale(1)',
-					opacity: '1',
-					transition: `transform ${config.duration}s, opacity ${config.duration}s`,
-				});
-				setTimeout(done, config.duration * 1000);
-			},
-			onLeave: (el, done) => {
-				const dur = getTransitionDuration() / 1000;
-				applyStyles(el, {
-					transform: 'scale(0.5)',
-					opacity: '0',
-					transition: `transform ${dur}s, opacity ${dur}s`,
-				});
-				setTimeout(done, getTransitionDuration());
-			},
-		}),
-		zoomOut: (config: AnimationConfig) => ({
-			onEnter: (el, done) => {
-				applyStyles(el, { transform: 'scale(1.25)', opacity: '0' });
-				forceReflow(el);
-				applyStyles(el, {
-					transform: 'scale(1)',
-					opacity: '1',
-					transition: `transform ${config.duration}s, opacity ${config.duration}s`,
-				});
-				setTimeout(done, config.duration * 1000);
-			},
-			onLeave: (el, done) => {
-				const dur = getTransitionDuration() / 1000;
-				applyStyles(el, {
-					transform: 'scale(1.25)',
-					opacity: '0',
-					transition: `transform ${dur}s, opacity ${dur}s`,
-				});
-				setTimeout(done, getTransitionDuration());
-			},
-		}),
-		zoomInOut: (config: AnimationConfig) => ({
-			onEnter: (el, done) => {
-				applyStyles(el, { transform: 'scale(1)', opacity: '0' });
-				forceReflow(el);
-				applyStyles(el, {
-					transform: 'scale(1.25)',
-					opacity: '1',
-					transition: `transform ${config.duration}s, opacity ${config.duration}s`,
-				});
-				setTimeout(done, config.duration * 1000);
-			},
-			onLeave: (el, done) => {
-				const dur = getTransitionDuration() / 1000;
-				applyStyles(el, {
-					transform: 'scale(1)',
-					opacity: '0',
-					transition: `transform ${dur}s, opacity ${dur}s`,
-				});
-				setTimeout(done, getTransitionDuration());
-			},
-		}),
+		};
 	};
 
-	return { variants };
+	return { getHandlers };
 };

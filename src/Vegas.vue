@@ -69,7 +69,7 @@ const { loading, loadProgress, preloadResources } = usePreload(
 	() => logError.value
 );
 
-const { variants } = useAnimationVariants(() => props.transitionDuration);
+const { getHandlers } = useAnimationVariants(() => props.transitionDuration);
 
 const {
 	phase,
@@ -160,20 +160,26 @@ const getSlideTransitionDuration = (idx: number) => {
 	return slide?.transitionDuration || props.transitionDuration;
 };
 
+// 本次切换使用的过渡名。原版语义：进入与离开共用「目标幻灯片」的过渡，
+// 因此离场钩子不能从离场元素上读 data 属性（那是上一张的过渡名）。
+const currentTransitionName = ref(props.transition);
+
+watch(
+	[currentSlide, phase],
+	() => { currentTransitionName.value = getSlideTransitionName(currentSlide.value); },
+	{ immediate: true }
+);
+
 const handleSlideEnter = (el: Element, done: () => void) => {
 	const htmlEl = el as HTMLElement;
 	const transName = htmlEl.dataset.transitionName || 'fade';
 	const duration = Number(htmlEl.dataset.transitionDuration) || props.transitionDuration;
-	const variant = variants[transName] || variants.fade;
-	variant({ duration: duration / 1000 }).onEnter(el, done);
+	getHandlers(transName, duration).onEnter(el, done);
 };
 
 const handleSlideLeave = (el: Element, done: () => void) => {
-	const htmlEl = el as HTMLElement;
-	const transName = htmlEl.dataset.transitionName || 'fade';
-	const variant = variants[transName] || variants.fade;
-	// Leave always uses base transitionDuration (matching React AnimatePresence behavior)
-	variant({ duration: props.transitionDuration / 1000 }).onLeave(el, done);
+	// 用目标幻灯片的过渡名，而不是离场元素上残留的上一张的名字
+	getHandlers(currentTransitionName.value, props.transitionDuration).onLeave(el, done);
 };
 
 // Track phase changes for onPlay/onPause callbacks
@@ -259,7 +265,7 @@ defineExpose<VegasHandle>({
 				v-for="idx in visibleSlides"
 				:key="`${slides[idx]?.src ?? ''}-${idx}`"
 				:data-slide-index="String(idx)"
-				:data-transition-name="getSlideTransitionName(idx)"
+				:data-transition-name="currentTransitionName"
 				:data-transition-duration="String(getSlideTransitionDuration(idx))"
 				:slide="slides[idx]"
 				:index="idx"
