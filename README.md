@@ -9,7 +9,7 @@
 ## 特性
 
 - 图片 & 视频幻灯片支持
-- 26 种内置过渡效果，与原版 Vegas.js 一一对应
+- 27 种内置过渡效果，其中 26 种与原版 Vegas.js 一一对应，另加 `zoomInOut` 扩展效果
 - 9 种 Ken Burns 缓慢推拉镜头动画
 - `transition` / `animation` 支持 `'random'`，可用 register 限定候选池
 - 每张幻灯片可独立配置过渡效果、时长、延迟
