@@ -207,15 +207,29 @@ const getSlideAnimationDuration = (idx: number) => {
 // 因此离场钩子不能从离场元素上读 data 属性（那是上一张的过渡名）。
 const currentTransitionName = ref(props.transition);
 
-// 本次切换使用的 Ken Burns 动画名。与过渡名同理，用 ref 缓存，
+// 本次幻灯片使用的 Ken Burns 动画名。与过渡名同理，用 ref 缓存，
 // 避免 `'random'` 在每次渲染时重新抽取导致画面抖动。
 const currentAnimationName = ref<string | null>(null);
 
+// 记录动画名上次是为哪一张幻灯片解析的，-1 表示尚未解析过
+let resolvedAnimationSlide = -1;
+
+// 两行的重算规则不同，原因如下：
+// - 过渡名依赖 phase（`isFirstTransition()` 决定是否用 firstTransition），必须跟着 phase 重算；
+//   它只在钩子触发的那一刻被读取，中途重抽不会影响已经在播的动画，因此重算是安全的。
+// - 动画名不依赖 phase，且它是绑定到媒体元素上的实时样式；phase 在
+//   firstSlide | playing | paused 之间变化时幻灯片始终挂载，若跟着重算，
+//   `'random'` 会抽到新名字并让 Ken Burns 从 0% 帧重新开始（暂停/切标签页时同样会触发）。
+//   所以只在幻灯片真正换了的时候才重新解析。
 watch(
 	[currentSlide, phase],
 	() => {
 		currentTransitionName.value = getSlideTransitionName(currentSlide.value);
-		currentAnimationName.value = getSlideAnimationName(currentSlide.value);
+
+		if (resolvedAnimationSlide !== currentSlide.value) {
+			resolvedAnimationSlide = currentSlide.value;
+			currentAnimationName.value = getSlideAnimationName(currentSlide.value);
+		}
 	},
 	{ immediate: true }
 );

@@ -14,6 +14,13 @@ const findSlideBySource = (wrapper: ReturnType<typeof mount>, source: string) =>
 		(node.element as HTMLDivElement).style.backgroundImage?.includes(source)
 	);
 
+// 读取某张幻灯片媒体元素上的 animation 简写值（未设置动画时为空串）
+const readSlideAnimation = (wrapper: ReturnType<typeof mount>, source: string) => {
+	const img = wrapper.find(`img[src="${source}"]`);
+	expect(img.exists()).toBe(true);
+	return (img.element as HTMLImageElement).style.animation;
+};
+
 const advanceTimers = async (duration: number) => {
 	vi.advanceTimersByTime(duration);
 	await flushPromises();
@@ -418,5 +425,133 @@ describe('Vegas', () => {
 		const slideEl = wrapper.find('[data-transition-name]');
 		expect(slideEl.exists()).toBe(true);
 		expect(['blur', 'swirlLeft']).toContain(slideEl.attributes('data-transition-name'));
+	});
+
+	it('keeps a random Ken Burns animation inside the register pool', async () => {
+		const wrapper = mount(Vegas, {
+			props: {
+				slides: [slides[0]],
+				autoplay: false,
+				animation: 'random',
+				animationRegister: ['kenburnsLeft', 'kenburnsRight'],
+				firstTransitionDuration: 0,
+			},
+		});
+
+		await flushEffects();
+
+		const animation = readSlideAnimation(wrapper, slides[0].src);
+		const inPool = ['vue3-vegas-kenburnsLeft', 'vue3-vegas-kenburnsRight']
+			.some(name => animation.includes(name));
+		expect(inPool).toBe(true);
+	});
+
+	it('keeps the random Ken Burns pick stable across a phase change', async () => {
+		vi.useFakeTimers();
+
+		// 让连续两次抽取必定落在不同的名字上：首次取池首,之后取池尾。
+		// 这样一旦发生重抽,动画名就会变,断言即可捕获。
+		let drawCount = 0;
+		const randomSpy = vi.spyOn(Math, 'random')
+			.mockImplementation(() => (drawCount++ === 0 ? 0 : 0.99));
+
+		try {
+			const wrapper = mount(Vegas, {
+				props: {
+					slides: [slides[0]],
+					autoplay: true,
+					// 停留时长远大于首帧时长,确保观察窗口内不会切换幻灯片
+					delay: 100000,
+					animation: 'random',
+					animationRegister: ['kenburnsUp', 'kenburnsDown'],
+					firstTransitionDuration: 1000,
+				},
+			});
+
+			await flushEffects();
+
+			const initial = readSlideAnimation(wrapper, slides[0].src);
+			expect(initial).toContain('vue3-vegas-kenburnsUp');
+
+			// firstSlide → playing：phase 变了但幻灯片没变,动画不应重抽
+			await advanceTimers(1000);
+
+			expect(readSlideAnimation(wrapper, slides[0].src)).toBe(initial);
+		} finally {
+			randomSpy.mockRestore();
+		}
+	});
+
+	it('uses the slide delay as the auto animation duration', async () => {
+		const wrapper = mount(Vegas, {
+			props: {
+				slides: [{ src: '/auto-delay.jpg', delay: 7000 }],
+				autoplay: false,
+				delay: 5000,
+				animation: 'kenburns',
+				// animationDuration 缺省即 'auto',应取该张幻灯片自己的 delay
+				firstTransitionDuration: 0,
+			},
+		});
+
+		await flushEffects();
+
+		const animation = readSlideAnimation(wrapper, '/auto-delay.jpg');
+		expect(animation).toContain('7000ms');
+		expect(animation).not.toContain('5000ms');
+	});
+
+	it('lets a slide override the global animation and animation duration', async () => {
+		const wrapper = mount(Vegas, {
+			props: {
+				slides: [{ src: '/override.jpg', animation: 'kenburnsDown', animationDuration: 1234 }],
+				autoplay: false,
+				animation: 'kenburnsUp',
+				animationDuration: 9000,
+				firstTransitionDuration: 0,
+			},
+		});
+
+		await flushEffects();
+
+		const animation = readSlideAnimation(wrapper, '/override.jpg');
+		expect(animation).toContain('vue3-vegas-kenburnsDown');
+		expect(animation).toContain('1234ms');
+		expect(animation).not.toContain('vue3-vegas-kenburnsUp');
+		expect(animation).not.toContain('9000ms');
+	});
+
+	it('falls back to fade and drops unknown effect names, warning in debug mode', async () => {
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+		try {
+			const wrapper = mount(Vegas, {
+				props: {
+					slides: [slides[0]],
+					autoplay: false,
+					transition: 'notATransition',
+					animation: 'notAnAnimation',
+					debug: true,
+					firstTransitionDuration: 0,
+				},
+			});
+
+			await flushEffects();
+
+			// 未知过渡回退到 fade
+			expect(wrapper.find('[data-transition-name]').attributes('data-transition-name')).toBe('fade');
+			// 未知动画直接忽略,媒体元素上不应有 animation
+			expect(readSlideAnimation(wrapper, slides[0].src)).toBe('');
+
+			const warnings = warnSpy.mock.calls
+				.flat()
+				.filter((arg): arg is string => typeof arg === 'string');
+			expect(warnings.some(message => message.includes('notATransition'))).toBe(true);
+			expect(warnings.some(message => message.includes('notAnAnimation'))).toBe(true);
+		} finally {
+			warnSpy.mockRestore();
+			logSpy.mockRestore();
+		}
 	});
 });
