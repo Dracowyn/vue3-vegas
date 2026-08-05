@@ -20,6 +20,13 @@ export const KEN_BURNS_NAMES: readonly string[] = Object.keys(KEN_BURNS_OFFSETS)
 /** CSS 动画名前缀，避免与页面上可能同时存在的原版 vegas.css 撞名 */
 export const KEN_BURNS_ANIMATION_PREFIX = 'vue3-vegas-';
 
+/**
+ * 自定义动画（经 `animationRegister` 登记、不在内置 Ken Burns 名单里）靠 CSS 类生效时使用
+ * 的类名前缀。媒体元素获得 `{PREFIX}{name}` 类并设置 `animationDuration`，keyframes 由使用者
+ * 的 CSS 定义（对应原版 Vegas.js 的类名约定）。区别于内置动画走的行内 `animation` 简写。
+ */
+export const CUSTOM_ANIMATION_CLASS_PREFIX = 'vegas-animation-';
+
 export const KEN_BURNS_KEYFRAMES_CSS: string = Object.entries(KEN_BURNS_OFFSETS)
 	.map(([name, offset]) => {
 		const fromTransform = offset === null

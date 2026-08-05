@@ -8,10 +8,14 @@ import {
 const ALL = ['fade', 'fade2', 'blur', 'zoomIn'] as const;
 
 describe('pickRandomName', () => {
-	it('picks from the register pool when it has entries', () => {
-		for (let i = 0; i < 50; i++) {
-			expect(['blur', 'zoomIn']).toContain(pickRandomName(['blur', 'zoomIn'], ALL));
+	it('merges the register pool into the fallback pool instead of replacing it', () => {
+		// 原版语义：register 是扩充候选池，不是限定它——内置名与自定义名都要能抽到
+		const seen = new Set<string>();
+		for (let i = 0; i < 200; i++) {
+			seen.add(pickRandomName(['myFade'], ALL));
 		}
+		expect(seen.has('myFade')).toBe(true);
+		expect([...seen].some(name => (ALL as readonly string[]).includes(name))).toBe(true);
 	});
 
 	it('falls back to the full pool when the register is empty or missing', () => {
@@ -31,11 +35,10 @@ describe('resolveEffectName', () => {
 		expect(resolveEffectName('blur', undefined, ALL, 'fade')).toBe('blur');
 	});
 
-	it('resolves "random" inside the register pool', () => {
+	it('resolves "random" to a name from the built-in pool merged with the register', () => {
 		for (let i = 0; i < 50; i++) {
-			expect(['blur', 'zoomIn']).toContain(
-				resolveEffectName('random', ['blur', 'zoomIn'], ALL, 'fade')
-			);
+			const picked = resolveEffectName('random', ['myFade'], ALL, 'fade');
+			expect([...ALL, 'myFade']).toContain(picked);
 		}
 	});
 
@@ -43,27 +46,60 @@ describe('resolveEffectName', () => {
 		expect(ALL).toContain(resolveEffectName('random', undefined, ALL, 'fade'));
 	});
 
-	it('falls back and reports on an unknown name', () => {
+	it('can pick a registered custom name via "random" — proves register is merged in, not just validated', () => {
+		const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.999);
+		try {
+			// 候选池是 [...ALL, 'myFade']，0.999 命中最后一个即 'myFade'
+			expect(resolveEffectName('random', ['myFade'], ALL, 'fade')).toBe('myFade');
+		} finally {
+			randomSpy.mockRestore();
+		}
+	});
+
+	it('lets a registered custom name pass validation directly, without going through "random"', () => {
 		const onUnknown = vi.fn();
-		expect(resolveEffectName('nope', undefined, ALL, 'fade', onUnknown)).toBe('fade');
+		expect(resolveEffectName('myFade', ['myFade'], ALL, 'fade', onUnknown)).toBe('myFade');
+		expect(onUnknown).not.toHaveBeenCalled();
+	});
+
+	it('falls back and reports on a name that is neither built-in nor registered', () => {
+		const onUnknown = vi.fn();
+		expect(resolveEffectName('nope', ['myFade'], ALL, 'fade', onUnknown)).toBe('fade');
 		expect(onUnknown).toHaveBeenCalledWith('nope');
 	});
 
-	it('validates the name picked out of the register pool', () => {
-		const onUnknown = vi.fn();
-		// register 里全是拼错的名字：不能静默产出死效果，必须回退并上报
-		expect(resolveEffectName('random', ['bulr'], ALL, 'fade', onUnknown)).toBe('fade');
-		expect(onUnknown).toHaveBeenCalledWith('bulr');
-	});
-
-	it('drops an unknown register pick when the fallback is null', () => {
-		expect(resolveEffectName('random', ['kenburnsUpp'], ALL, null)).toBe(null);
+	it('drops an unknown name when the fallback is null', () => {
+		expect(resolveEffectName('nope', undefined, ALL, null)).toBe(null);
 	});
 
 	it('does not report for a known name', () => {
 		const onUnknown = vi.fn();
 		resolveEffectName('blur', undefined, ALL, 'fade', onUnknown);
 		expect(onUnknown).not.toHaveBeenCalled();
+	});
+
+	describe('array form', () => {
+		it('picks a random name out of the array itself, ignoring the register', () => {
+			for (let i = 0; i < 50; i++) {
+				expect(['blur', 'zoomIn']).toContain(
+					resolveEffectName(['blur', 'zoomIn'], undefined, ALL, 'fade')
+				);
+			}
+		});
+
+		it('still validates the picked name, allowing a registered custom name', () => {
+			expect(resolveEffectName(['myFade'], ['myFade'], ALL, 'fade')).toBe('myFade');
+		});
+
+		it('falls back and reports when the picked name is neither built-in nor registered', () => {
+			const onUnknown = vi.fn();
+			expect(resolveEffectName(['nope'], undefined, ALL, 'fade', onUnknown)).toBe('fade');
+			expect(onUnknown).toHaveBeenCalledWith('nope');
+		});
+
+		it('treats an empty array like an absent value and returns the fallback', () => {
+			expect(resolveEffectName([], undefined, ALL, 'fade')).toBe('fade');
+		});
 	});
 });
 

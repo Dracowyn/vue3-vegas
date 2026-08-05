@@ -476,34 +476,67 @@ describe('Vegas', () => {
 		expect(readSlideAnimation(wrapper, slides[0].src)).toBe('');
 	});
 
-	it('re-rolls a random animation when the register pool changes', async () => {
-		const wrapper = mount(Vegas, {
-			props: {
-				slides: [slides[0]],
-				autoplay: false,
-				animation: 'random',
-				animationRegister: ['kenburnsLeft'],
-				firstTransitionDuration: 0,
-			},
-		});
+	// 原版语义：register 把自定义名并入内置池供 'random' 抽取，不是限定候选池。
+	// 用 mock Math.random 命中"池尾"（fallbackPool.concat(register) 里 register 追加的那份），
+	// 既验证了 register 真的参与了候选池，也验证了 register 变化会触发重新解析。
+	it('re-resolves the random animation when the register pool changes, always able to pick the registered name', async () => {
+		const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.999);
 
-		await flushEffects();
+		try {
+			const wrapper = mount(Vegas, {
+				props: {
+					slides: [slides[0]],
+					autoplay: false,
+					animation: 'random',
+					animationRegister: ['kenburnsLeft'],
+					firstTransitionDuration: 0,
+				},
+			});
 
-		expect(readSlideAnimation(wrapper, slides[0].src)).toContain('vue3-vegas-kenburnsLeft');
+			await flushEffects();
 
-		await wrapper.setProps({ animationRegister: ['kenburnsRight'] });
-		await flushEffects();
+			expect(readSlideAnimation(wrapper, slides[0].src)).toContain('vue3-vegas-kenburnsLeft');
 
-		expect(readSlideAnimation(wrapper, slides[0].src)).toContain('vue3-vegas-kenburnsRight');
+			await wrapper.setProps({ animationRegister: ['kenburnsRight'] });
+			await flushEffects();
+
+			expect(readSlideAnimation(wrapper, slides[0].src)).toContain('vue3-vegas-kenburnsRight');
+		} finally {
+			randomSpy.mockRestore();
+		}
 	});
 
-	it('keeps a random transition inside the register pool', async () => {
+	it('merges a registered custom transition name into the random pool', async () => {
+		const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.999);
+
+		try {
+			const wrapper = mount(Vegas, {
+				props: {
+					slides,
+					autoplay: false,
+					transition: 'random',
+					transitionRegister: ['myFade'],
+					firstTransitionDuration: 0,
+				},
+			});
+
+			await flushEffects();
+
+			// 候选池 = 全部内置过渡 + ['myFade']，0.999 命中池尾即注册的自定义名——
+			// 证明 register 确实并入了候选池，而不仅仅是被当作合法名单
+			const slideEl = wrapper.find('[data-transition-name]');
+			expect(slideEl.attributes('data-transition-name')).toBe('myFade');
+		} finally {
+			randomSpy.mockRestore();
+		}
+	});
+
+	it('restricts the transition candidates to the array when transition is passed as an array', async () => {
 		const wrapper = mount(Vegas, {
 			props: {
 				slides,
 				autoplay: false,
-				transition: 'random',
-				transitionRegister: ['blur', 'swirlLeft'],
+				transition: ['blur', 'swirlLeft'],
 				firstTransitionDuration: 0,
 			},
 		});
@@ -515,13 +548,34 @@ describe('Vegas', () => {
 		expect(['blur', 'swirlLeft']).toContain(slideEl.attributes('data-transition-name'));
 	});
 
-	it('keeps a random Ken Burns animation inside the register pool', async () => {
+	it('switches slides normally when transition is given as an array', async () => {
+		vi.useFakeTimers();
+
+		const wrapper = mount(Vegas, {
+			props: {
+				slides,
+				autoplay: false,
+				transition: ['fade2'],
+				transitionDuration: 1000,
+				firstTransitionDuration: 0,
+			},
+		});
+
+		await flushEffects();
+		expect(findSlideBySource(wrapper, slides[0].src)).toBe(true);
+
+		(wrapper.vm as unknown as { next: () => void }).next();
+		await advanceTimers(1000);
+
+		expect(findSlideBySource(wrapper, slides[1].src)).toBe(true);
+	});
+
+	it('restricts the animation candidates to the array when animation is passed as an array', async () => {
 		const wrapper = mount(Vegas, {
 			props: {
 				slides: [slides[0]],
 				autoplay: false,
-				animation: 'random',
-				animationRegister: ['kenburnsLeft', 'kenburnsRight'],
+				animation: ['kenburnsLeft', 'kenburnsRight'],
 				firstTransitionDuration: 0,
 			},
 		});
@@ -537,8 +591,9 @@ describe('Vegas', () => {
 	it('keeps the random Ken Burns pick stable across a phase change', async () => {
 		vi.useFakeTimers();
 
-		// 让连续两次抽取必定落在不同的名字上：首次取池首,之后取池尾。
-		// 这样一旦发生重抽,动画名就会变,断言即可捕获。
+		// register 合并进内置池后候选池 = 9 个内置 + 2 个 register（追加在尾部）共 11 个。
+		// 让连续两次抽取必定落在不同的名字上：首次取池首(kenburns),之后取池尾(register
+		// 追加的那份 kenburnsDown)。这样一旦发生重抽,动画名就会变,断言即可捕获。
 		let drawCount = 0;
 		const randomSpy = vi.spyOn(Math, 'random')
 			.mockImplementation(() => (drawCount++ === 0 ? 0 : 0.99));
@@ -559,7 +614,8 @@ describe('Vegas', () => {
 			await flushEffects();
 
 			const initial = readSlideAnimation(wrapper, slides[0].src);
-			expect(initial).toContain('vue3-vegas-kenburnsUp');
+			// 结尾带空格，与 kenburnsUp / kenburnsDown 等前缀相同的名字区分开
+			expect(initial).toContain('vue3-vegas-kenburns ');
 
 			// firstSlide → playing：phase 变了但幻灯片没变,动画不应重抽
 			await advanceTimers(1000);

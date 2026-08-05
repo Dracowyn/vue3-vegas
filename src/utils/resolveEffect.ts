@@ -1,28 +1,41 @@
-/** 从 register 池里随机取名；池为空或未提供时退回全量名单 */
+/**
+ * 从候选池里随机取名。原版语义：register 是把自定义名**并入**内置池，而不是限定它——
+ * 池为空/未提供时就是纯内置池；有内容时是「内置池 + register」的合集。
+ */
 export const pickRandomName = (
 	pool: string[] | undefined,
 	fallbackPool: readonly string[]
 ): string => {
-	const candidates = pool && pool.length > 0 ? pool : fallbackPool;
+	const candidates = pool && pool.length > 0 ? fallbackPool.concat(pool) : fallbackPool;
 	return candidates[Math.floor(Math.random() * candidates.length)];
 };
 
 /**
- * 解析效果名，支持原版的 `'random'` 语义。
- * 未知名字回退到 fallback，并通过 onUnknown 上报（调用方在 debug 打开时告警）。
+ * 解析效果名，支持原版的 `'random'` 与数组语义：
+ * - `'random'`：从「内置池 + register」的合集里随机抽一个。
+ * - 数组：从数组本身随机抽一个（不合并 register，原版就是这个语义）。
+ *
+ * 未知名字（既不在内置名单、也未通过 register 登记）回退到 fallback，
+ * 并通过 onUnknown 上报（调用方在 debug 打开时告警）。
  */
 export const resolveEffectName = (
-	requested: string | null | undefined,
+	requested: string | string[] | null | undefined,
 	register: string[] | undefined,
 	allNames: readonly string[],
 	fallback: string | null,
 	onUnknown?: (name: string) => void
 ): string | null => {
-	if (!requested) return fallback;
+	if (!requested || (Array.isArray(requested) && requested.length === 0)) return fallback;
 
-	// register 里可能有拼错的名字，抽到后同样要走校验，否则会静默产出一个死效果
-	const name = requested === 'random' ? pickRandomName(register, allNames) : requested;
-	if (allNames.includes(name)) return name;
+	const name = Array.isArray(requested)
+		? pickRandomName(undefined, requested)
+		: requested === 'random'
+			? pickRandomName(register, allNames)
+			: requested;
+
+	// 合法 = 内置名单里有，或者 register 显式登记过——自定义名靠 CSS 类生效，
+	// 不出现在内置名单里，但登记过的名字本身就是合法输入，不能当成拼写错误上报
+	if (allNames.includes(name) || (register?.includes(name) ?? false)) return name;
 
 	onUnknown?.(name);
 	return fallback;

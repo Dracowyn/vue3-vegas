@@ -233,11 +233,20 @@ const getSlideAnimationDuration = (idx: number) => {
 
 // 本次切换使用的过渡名。原版语义：进入与离开共用「目标幻灯片」的过渡，
 // 因此离场钩子不能从离场元素上读 data 属性（那是上一张的过渡名）。
-const currentTransitionName = ref(props.transition);
+// 初值只是占位（transition 现在可能是数组，不能直接塞进去）——immediate 的
+// watch 会在挂载后立刻用 resolveEffectName 算出真正的值并覆盖它。
+const currentTransitionName = ref<string>('fade');
 
 // 本次幻灯片使用的 Ken Burns 动画名。与过渡名同理，用 ref 缓存，
 // 避免 `'random'` 在每次渲染时重新抽取导致画面抖动。
 const currentAnimationName = ref<string | null>(null);
+
+// requested 可能是字符串数组（animation 的数组形式），拼进指纹前需要一个稳定的
+// 序列化方式，不能依赖模板字符串对数组的隐式 toString
+const serializeRequestedEffect = (requested: string | string[] | null | undefined): string => {
+	if (requested == null) return '';
+	return Array.isArray(requested) ? requested.join(',') : requested;
+};
 
 // 动画名的「解析依据」指纹：幻灯片下标 + 请求的动画名 + random 候选池。
 // 指纹没变就说明没有任何需要重解析的输入变化，直接沿用已解析的结果；
@@ -245,7 +254,7 @@ const currentAnimationName = ref<string | null>(null);
 // slides[i].animation 的任何变化。
 const animationKey = computed(() =>
 	`${currentSlide.value}`
-	+ `|${getRequestedAnimation(currentSlide.value) ?? ''}`
+	+ `|${serializeRequestedEffect(getRequestedAnimation(currentSlide.value))}`
 	+ `|${(props.animationRegister ?? []).join(',')}`
 );
 

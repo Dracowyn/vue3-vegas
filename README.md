@@ -11,7 +11,8 @@
 - 图片 & 视频幻灯片支持
 - 27 种内置过渡效果，其中 26 种与原版 Vegas.js 一一对应，另加 `zoomInOut` 扩展效果
 - 9 种 Ken Burns 缓慢推拉镜头动画
-- `transition` / `animation` 支持 `'random'`，可用 register 限定候选池
+- `transition` / `animation` 支持 `'random'`（可用 register 注册自定义名并入候选池）与数组形式（从数组中随机抽取）
+- 支持通过 CSS 类注册自定义过渡 / Ken Burns 动画，不必局限于内置效果
 - 每张幻灯片可独立配置过渡效果、时长、延迟
 - 默认背景图，与第一张幻灯片交叉淡入过渡
 - 随机播放（shuffle）
@@ -88,9 +89,9 @@ import { Vegas } from 'vue3-vegas'
 
 | Prop | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `transition` | `string` | `'fade'` | 幻灯片切换过渡效果 |
+| `transition` | `string \| string[]` | `'fade'` | 幻灯片切换过渡效果。传数组时每次切换从数组里随机抽一个 |
 | `transitionDuration` | `number` | `1000` | 切换动画时长（ms） |
-| `firstTransition` | `string \| null` | `null` | 第一张幻灯片的进入效果，不设置则使用 `transition` |
+| `firstTransition` | `string \| string[] \| null` | `null` | 第一张幻灯片的进入效果，不设置则使用 `transition` |
 | `firstTransitionDuration` | `number \| null` | `null` | 第一张幻灯片进入动画时长（ms），不设置则使用 `transitionDuration` |
 
 **可用过渡效果：**
@@ -118,16 +119,90 @@ import { Vegas } from 'vue3-vegas'
 
 另有 `zoomInOut`（进入后持续缓慢放大）——这是 vue3-vegas 的自有扩展，不属于原版。
 
+`transition: 'random'` 从全部内置过渡中随机选一个；传数组（如 `['fade', 'slideLeft']`）则只从
+数组内随机选一个。`transitionRegister` 见下方 [自定义过渡 / 自定义动画](#自定义过渡--自定义动画)。
+
 ### Ken Burns 动画
 
 | Prop | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `animation` | `string \| null` | `null` | Ken Burns 动画名，`null` 表示不启用 |
+| `animation` | `string \| string[] \| null` | `null` | Ken Burns 动画名，`null` 表示不启用。传数组时每次切换从数组里随机抽一个 |
 | `animationDuration` | `number \| 'auto'` | `'auto'` | 动画时长（ms）。`'auto'` 取该张幻灯片的 `delay` |
-| `transitionRegister` | `string[]` | — | 限定 `transition: 'random'` 的候选池 |
-| `animationRegister` | `string[]` | — | 限定 `animation: 'random'` 的候选池 |
+| `transitionRegister` | `string[]` | — | 注册自定义过渡名，并入内置池供 `transition: 'random'` 抽取 |
+| `animationRegister` | `string[]` | — | 注册自定义动画名，并入内置池供 `animation: 'random'` 抽取 |
 
 可用动画：`kenburns`、`kenburnsUp`、`kenburnsDown`、`kenburnsLeft`、`kenburnsRight`、`kenburnsUpLeft`、`kenburnsUpRight`、`kenburnsDownLeft`、`kenburnsDownRight`。
+
+### 自定义过渡 / 自定义动画
+
+内置效果之外，也可以用 CSS 类自己定义过渡 / 动画——用法与原版 Vegas.js 一致。
+
+**自定义过渡**：用 `transitionRegister` 注册名字，组件会在切换时依次给元素加类名，样式（初始态 /
+目标态 / 离场态）全部由你的 CSS 决定：
+
+- 入场元素：先加 `vegas-transition-{name}`，随后（下一帧）加 `vegas-transition-{name}-in` 并设置
+  `transition: all {duration}ms`。把 `vegas-transition-{name}` 里的样式当作初始态，
+  `vegas-transition-{name}-in` 里的样式当作目标态。
+- 离场元素：加 `vegas-transition-{name}-out` 并设置同样的 `transition`。
+
+```vue
+<template>
+	<Vegas
+		:slides="slides"
+		transition="myFade"
+		:transition-register="['myFade']"
+	/>
+</template>
+
+<style>
+.vegas-transition-myFade {
+	opacity: 0;
+	filter: grayscale(1);
+}
+.vegas-transition-myFade-in {
+	opacity: 1;
+	filter: grayscale(0);
+}
+.vegas-transition-myFade-out {
+	opacity: 0;
+}
+</style>
+```
+
+**自定义动画**：用 `animationRegister` 注册名字，内层媒体元素会获得 `vegas-animation-{name}` 类并
+设置 `animationDuration`，`@keyframes` 需要你自己在 CSS 里定义：
+
+```vue
+<template>
+	<Vegas
+		:slides="slides"
+		animation="myZoom"
+		:animation-register="['myZoom']"
+	/>
+</template>
+
+<style>
+.vegas-animation-myZoom {
+	animation-name: myZoom;
+	animation-timing-function: ease-out;
+	animation-fill-mode: forwards;
+}
+@keyframes myZoom {
+	from { transform: scale(1); }
+	to { transform: scale(1.3); }
+}
+</style>
+```
+
+`transition` / `animation` 也都支持数组形式，从数组内随机抽取，可以和 register 搭配一起用：
+
+```vue
+<Vegas
+	:slides="slides"
+	:transition="['fade', 'myFade']"
+	:transition-register="['myFade']"
+/>
+```
 
 ### 效果强度调节
 
@@ -233,9 +308,9 @@ interface SlideProps {
   delay?: number | null                 // 停留时长（ms），覆盖全局 delay
   align?: 'left' | 'center' | 'right'  // 水平对齐，覆盖全局 align
   valign?: 'top' | 'center' | 'bottom' // 垂直对齐，覆盖全局 valign
-  transition?: string | null            // 过渡效果，覆盖全局 transition
+  transition?: string | string[] | null // 过渡效果，覆盖全局 transition（支持数组）
   transitionDuration?: number | null    // 过渡时长（ms），覆盖全局 transitionDuration
-  animation?: string | null             // Ken Burns 动画名，覆盖全局 animation
+  animation?: string | string[] | null  // Ken Burns 动画名，覆盖全局 animation（支持数组）
   animationDuration?: number | 'auto' | null // 动画时长（ms），覆盖全局 animationDuration
   cover?: boolean                       // 填充模式，覆盖全局 cover
   video?: {

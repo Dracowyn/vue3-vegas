@@ -2,7 +2,11 @@
 import { ref, computed, watch } from 'vue';
 import type { CSSProperties } from 'vue';
 import type { SlideProps, Logger } from '../types';
-import { KEN_BURNS_ANIMATION_PREFIX } from '../composables/kenBurnsPresets';
+import {
+	CUSTOM_ANIMATION_CLASS_PREFIX,
+	KEN_BURNS_ANIMATION_PREFIX,
+	KEN_BURNS_NAMES,
+} from '../composables/kenBurnsPresets';
 
 const props = defineProps<{
 	slide: SlideProps;
@@ -39,15 +43,33 @@ const surfaceStyle = computed<CSSProperties>(() => ({
 	backgroundColor: props.slide.color || props.color || undefined,
 }));
 
+// 内置 Ken Burns 名字才有对应的 @keyframes，其余（animationRegister 登记过的自定义名）
+// 走 CSS 类模式——resolveEffectName 已经保证走到这里的名字要么内置、要么登记过
+const isBuiltinKenBurns = computed(() =>
+	props.animationName !== null && KEN_BURNS_NAMES.includes(props.animationName)
+);
+
 // Ken Burns 挂在内层媒体上,与外层 wrapper 的过渡 transform 互不覆盖。
 // 用 forwards 保持结束状态,避免动画短于 delay 时画面回弹。
-const animationStyle = computed<CSSProperties>(() =>
-	props.animationName
-		? {
+const animationStyle = computed<CSSProperties>(() => {
+	if (!props.animationName) return {};
+
+	if (isBuiltinKenBurns.value) {
+		return {
 			animation: `${KEN_BURNS_ANIMATION_PREFIX}${props.animationName} `
 				+ `${props.animationDuration}ms ease-out forwards`,
-		}
-		: {}
+		};
+	}
+
+	// 自定义动画：keyframes 由使用者的 CSS 提供，这里只设置时长，类名单独绑定
+	return { animationDuration: `${props.animationDuration}ms` };
+});
+
+// 自定义动画的类名，内置 Ken Burns 走行内 animation 简写，不需要类
+const animationClass = computed(() =>
+	props.animationName && !isBuiltinKenBurns.value
+		? `${CUSTOM_ANIMATION_CLASS_PREFIX}${props.animationName}`
+		: undefined
 );
 
 const videoStyle = computed<CSSProperties>(() => ({
@@ -104,6 +126,7 @@ const handleImgError = () => {
 		<template v-if="slide.video">
 			<video
 				ref="videoRef"
+				:class="animationClass"
 				:style="videoStyle"
 				:autoplay="isMediaPlaying"
 				:muted="videoMuted"
@@ -124,6 +147,7 @@ const handleImgError = () => {
 			<img
 				:src="slide.src"
 				alt=""
+				:class="animationClass"
 				:style="imgStyle"
 				aria-hidden="true"
 				@error="handleImgError"

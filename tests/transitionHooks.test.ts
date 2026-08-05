@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Vegas from '../src/Vegas.vue';
+import { VEGAS_LAYERS } from '../src/constants/layers';
 import { advanceTimers, flushEffects } from './helpers';
 
 // @vue/test-utils 默认把 <TransitionGroup> 换成 stub，JS 进入/离开钩子就不会执行。
@@ -209,5 +210,133 @@ describe('TransitionGroup enter/leave hooks', () => {
 		// 就位后的幻灯片仍带着 z-index，遮罩与进度条必须压在它之上
 		expect(zIndexOf(settled)).toBeLessThan(zIndexOf(overlay as HTMLElement));
 		expect(zIndexOf(settled)).toBeLessThan(zIndexOf(timer as HTMLElement));
+	});
+});
+
+// 原版语义：自定义过渡靠 CSS 类生效，组件本身不知道效果长什么样——
+// 只负责按约定的时机加/换类名、设置层叠与 transition 简写，样式由使用者的 CSS 提供。
+describe('custom transitions via transitionRegister (CSS class mode)', () => {
+	afterEach(() => {
+		if (vi.isFakeTimers()) {
+			vi.runOnlyPendingTimers();
+			vi.useRealTimers();
+		}
+	});
+
+	it('adds the base and "-in" classes, sets the entering z-index and transition duration', async () => {
+		vi.useFakeTimers();
+
+		const wrapper = mountVegas({
+			slides: [{ src: '/a.jpg' }],
+			autoplay: false,
+			transition: 'myFade',
+			transitionRegister: ['myFade'],
+			transitionDuration: 1000,
+			firstTransitionDuration: 0,
+		});
+
+		await flushEffects();
+
+		const entering = slideElement(wrapper, 0);
+		expect(entering.classList.contains('vegas-transition-myFade')).toBe(true);
+		expect(entering.classList.contains('vegas-transition-myFade-in')).toBe(true);
+		expect(entering.style.transition).toContain('all 1000ms');
+		expect(zIndexOf(entering)).toBe(VEGAS_LAYERS.slideEntering);
+	});
+
+	it('adds the base, "-in" and "-out" classes and sets the leaving z-index on leave', async () => {
+		vi.useFakeTimers();
+
+		const wrapper = mountVegas({
+			slides: [{ src: '/a.jpg' }, { src: '/b.jpg' }],
+			autoplay: false,
+			transition: 'myFade',
+			transitionRegister: ['myFade'],
+			transitionDuration: 1000,
+			firstTransitionDuration: 0,
+		});
+
+		await flushEffects();
+
+		(wrapper.vm as unknown as { next: () => void }).next();
+		await flushEffects();
+
+		// 原版语义：离场元素先补上本次过渡名的 base + -in（就位态），再叠加 -out
+		const leaving = slideElement(wrapper, 0);
+		expect(leaving.classList.contains('vegas-transition-myFade')).toBe(true);
+		expect(leaving.classList.contains('vegas-transition-myFade-in')).toBe(true);
+		expect(leaving.classList.contains('vegas-transition-myFade-out')).toBe(true);
+		expect(leaving.style.transition).toContain('all 1000ms');
+		expect(zIndexOf(leaving)).toBe(VEGAS_LAYERS.slideLeaving);
+	});
+
+	it('clears inline styles left by a built-in preset before switching to a custom leave transition', async () => {
+		vi.useFakeTimers();
+
+		const wrapper = mountVegas({
+			slides: [
+				{ src: '/a.jpg' },
+				{ src: '/b.jpg', transition: 'myFade' },
+			],
+			autoplay: false,
+			transition: 'fade',
+			transitionRegister: ['myFade'],
+			transitionDuration: 1000,
+			firstTransitionDuration: 0,
+		});
+
+		await flushEffects();
+
+		// 上一张用内置 fade 进场，留下了行内 opacity / transition 简写
+		const entering = slideElement(wrapper, 0);
+		expect(entering.style.opacity).toBe('1');
+		expect(entering.style.transition).toContain('opacity 1000ms');
+
+		(wrapper.vm as unknown as { next: () => void }).next();
+		await flushEffects();
+
+		// 这一张离场改走自定义过渡（目标幻灯片的 myFade）：内置预设留下的行内样式必须被清掉，
+		// 否则行内样式的优先级永远压过用户 CSS 里的 .vegas-transition-myFade-out
+		const leaving = slideElement(wrapper, 0);
+		expect(leaving.style.opacity).toBe('');
+		expect(leaving.style.transform).toBe('');
+		expect(leaving.style.filter).toBe('');
+		expect(leaving.style.transition).toContain('all 1000ms');
+		expect(leaving.style.transition).not.toContain('opacity 1000ms');
+		expect(leaving.classList.contains('vegas-transition-myFade')).toBe(true);
+		expect(leaving.classList.contains('vegas-transition-myFade-in')).toBe(true);
+		expect(leaving.classList.contains('vegas-transition-myFade-out')).toBe(true);
+	});
+
+	it('removes the previous custom transition classes when the leave transition changes to a different custom name', async () => {
+		vi.useFakeTimers();
+
+		const wrapper = mountVegas({
+			slides: [
+				{ src: '/a.jpg', transition: 'myA' },
+				{ src: '/b.jpg', transition: 'myB' },
+			],
+			autoplay: false,
+			transitionRegister: ['myA', 'myB'],
+			transitionDuration: 1000,
+			firstTransitionDuration: 0,
+		});
+
+		await flushEffects();
+
+		const entering = slideElement(wrapper, 0);
+		expect(entering.classList.contains('vegas-transition-myA')).toBe(true);
+		expect(entering.classList.contains('vegas-transition-myA-in')).toBe(true);
+
+		(wrapper.vm as unknown as { next: () => void }).next();
+		await flushEffects();
+
+		// A 进场时挂的类不能残留下来跟 B 的 -out 同特异性打架，必须先清掉再换成 B 的
+		const leaving = slideElement(wrapper, 0);
+		expect(leaving.classList.contains('vegas-transition-myA')).toBe(false);
+		expect(leaving.classList.contains('vegas-transition-myA-in')).toBe(false);
+		expect(leaving.classList.contains('vegas-transition-myB')).toBe(true);
+		expect(leaving.classList.contains('vegas-transition-myB-in')).toBe(true);
+		expect(leaving.classList.contains('vegas-transition-myB-out')).toBe(true);
 	});
 });

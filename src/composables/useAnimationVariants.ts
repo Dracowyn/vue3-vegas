@@ -1,4 +1,4 @@
-import { TRANSITION_PRESETS } from './transitionPresets';
+import { CUSTOM_TRANSITION_CLASS_PREFIX, TRANSITION_PRESETS } from './transitionPresets';
 import { VEGAS_LAYERS } from '../constants/layers';
 
 export interface VegasTransitionHandlers {
@@ -21,10 +21,62 @@ export const useAnimationVariants = () => {
 	const buildTransitionShorthand = (styles: Record<string, string>, durationMs: number) =>
 		Object.keys(styles).map(property => `${property} ${durationMs}ms`).join(', ');
 
+	// 内置预设的 onEnter 会留下行内 opacity/transform/filter（以及对应的 transition 简写），
+	// 行内样式优先级永远压过类。混用场景（上一张内置过渡进场、这一张切到自定义过渡离场）下，
+	// 这些残留必须清掉，否则自定义类里的样式完全不生效。内置 `to` 态是 opacity:1/恒等
+	// transform/中性 filter，清空这几个属性不会造成视觉跳变。
+	const clearBuiltinPresetInlineStyles = (el: Element) => {
+		applyStyles(el, { opacity: '', transform: '', filter: '' });
+	};
+
+	// 自定义过渡（transitionRegister 登记、没有内置预设）靠 CSS 类生效：组件不知道效果
+	// 长什么样，只负责在原版约定的时机加/换类名，样式由使用者的 CSS 定义。
+	const getCustomClassHandlers = (name: string, durationMs: number): VegasTransitionHandlers => {
+		const baseClass = `${CUSTOM_TRANSITION_CLASS_PREFIX}${name}`;
+
+		return {
+			onEnter: (el, done) => {
+				const htmlEl = el as HTMLElement;
+				htmlEl.classList.add(baseClass);
+				applyStyles(el, { zIndex: String(VEGAS_LAYERS.slideEntering) });
+				forceReflow(el);
+				htmlEl.style.transition = `all ${durationMs}ms`;
+				htmlEl.classList.add(`${baseClass}-in`);
+				setTimeout(done, durationMs);
+			},
+			onLeave: (el, done) => {
+				const htmlEl = el as HTMLElement;
+
+				// 原版 _goto 对 outgoing slide 的处理：先把 transition 归零，防止下面的
+				// 清理/换类被残留的 transition 动画化
+				htmlEl.style.transition = 'all 0ms';
+				clearBuiltinPresetInlineStyles(el);
+
+				// 离场元素身上可能还挂着上一次（可能是另一个自定义名）留下的
+				// vegas-transition-* 类，同特异性下谁生效取决于样式表顺序——必须先清掉，
+				// 再挂本次过渡名的 base + -in（就位态），最后叠加 -out
+				Array.from(htmlEl.classList)
+					.filter(className => className.startsWith(CUSTOM_TRANSITION_CLASS_PREFIX))
+					.forEach(className => htmlEl.classList.remove(className));
+				htmlEl.classList.add(baseClass, `${baseClass}-in`);
+
+				applyStyles(el, { zIndex: String(VEGAS_LAYERS.slideLeaving) });
+				forceReflow(el);
+
+				htmlEl.style.transition = `all ${durationMs}ms`;
+				htmlEl.classList.add(`${baseClass}-out`);
+				setTimeout(done, durationMs);
+			},
+		};
+	};
+
 	// 原版语义：进入与离开共用「目标幻灯片」解析出的同一个时长（durationMs），
 	// 不区分「进入用目标时长、离开用基础时长」。
 	const getHandlers = (name: string, durationMs: number): VegasTransitionHandlers => {
-		const preset = TRANSITION_PRESETS[name] ?? TRANSITION_PRESETS.fade;
+		const preset = TRANSITION_PRESETS[name];
+		// resolveEffectName 已经保证 name 要么是内置预设名，要么是 register 登记过的
+		// 自定义名——走到这里没有预设，就一定是后者，切到类模式
+		if (!preset) return getCustomClassHandlers(name, durationMs);
 
 		return {
 			onEnter: (el, done) => {

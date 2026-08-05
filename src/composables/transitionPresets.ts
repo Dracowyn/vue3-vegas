@@ -110,3 +110,10 @@ export const TRANSITION_PRESETS: Readonly<Record<string, TransitionPreset>> = Ob
 });
 
 export const TRANSITION_NAMES: readonly string[] = Object.keys(TRANSITION_PRESETS);
+
+/**
+ * 自定义过渡（经 `transitionRegister` 登记、没有内置预设的名字）靠 CSS 类生效时使用的类名前缀。
+ * 入场元素依次获得 `{PREFIX}{name}` 与 `{PREFIX}{name}-in`，离场元素获得 `{PREFIX}{name}-out`，
+ * 初始态/目标态/离场态样式全部由使用者的 CSS 定义（逐字对应原版 Vegas.js 的类名约定）。
+ */
+export const CUSTOM_TRANSITION_CLASS_PREFIX = 'vegas-transition-';
