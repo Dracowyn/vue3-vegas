@@ -143,6 +143,22 @@ describe('手动导航 goTo / current / onWalk', () => {
 		expect(second).toHaveBeenCalledWith(1, slides[1]);
 	});
 
+	it('loop 关闭时在第一张 previous 不会暂停播放（与原版一致）', async () => {
+		vi.useFakeTimers();
+		const onPause = vi.fn();
+		const wrapper = mountVegas({ autoplay: true, loop: false, onPause });
+		await flushEffects();
+
+		const handle = handleOf(wrapper);
+		expect(handle.playing()).toBe(true);
+
+		expect(handle.previous()).toBe(false);
+		await flushEffects();
+
+		expect(handle.playing()).toBe(true);
+		expect(onPause).not.toHaveBeenCalled();
+	});
+
 	it('shuffle 下 current 返回真实幻灯片下标而非播放顺序位置', async () => {
 		vi.useFakeTimers();
 		const wrapper = mountVegas({ shuffle: true });

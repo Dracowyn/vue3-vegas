@@ -38,7 +38,7 @@ const props = withDefaults(defineProps<VegasProps>(), {
 	align: 'center',
 	valign: 'center',
 	firstTransition: null,
-	firstTransitionDuration: 3000,
+	firstTransitionDuration: null,
 	transition: 'fade',
 	transitionDuration: 1000,
 	animation: null,
@@ -67,6 +67,9 @@ const effectivePreloadImage = computed(() => props.preload || props.preloadImage
 const effectivePreloadVideo = computed(() => props.preload || props.preloadVideo);
 const shouldPreload = computed(() => effectivePreloadImage.value || effectivePreloadVideo.value);
 
+// 原版 Vegas.js 语义：firstTransitionDuration 缺省（null）时回退到 transitionDuration
+const effectiveFirstTransitionDuration = computed(() => props.firstTransitionDuration ?? props.transitionDuration);
+
 const { log, logWarn, logError } = useLogger(() => props.debug);
 
 const { loading, loadProgress, preloadResources } = usePreload(
@@ -79,7 +82,7 @@ const { loading, loadProgress, preloadResources } = usePreload(
 	() => logError.value
 );
 
-const { getHandlers } = useAnimationVariants(() => props.transitionDuration);
+const { getHandlers } = useAnimationVariants();
 
 const {
 	phase,
@@ -95,7 +98,7 @@ const {
 	() => props.autoplay,
 	() => Boolean(props.defaultBackground),
 	() => props.defaultBackgroundDuration,
-	() => props.firstTransitionDuration,
+	() => effectiveFirstTransitionDuration.value,
 	preloadResources,
 	() => log.value
 );
@@ -123,14 +126,13 @@ const {
 	goTo: stateGoTo,
 } = vegasState;
 
-// 锁需保持到本次切换的进入动画结束。进入动画用的是目标幻灯片的有效时长,
-// 离开动画固定用基础时长,取两者较大值,避免短锁导致动画重叠。
+// 锁需保持到本次切换的进入动画结束。进入与离开共用目标幻灯片解析出的同一个
+// 时长（见 getSlideTransitionDuration），锁保持这么久即可。
 const currentTransitionDuration = ref(props.transitionDuration);
 
 const startTransition = (transitionStarted: boolean) => {
 	if (transitionStarted) {
-		const enterDuration = getSlideTransitionDuration(currentSlide.value);
-		currentTransitionDuration.value = Math.max(enterDuration, props.transitionDuration);
+		currentTransitionDuration.value = getSlideTransitionDuration(currentSlide.value);
 		isTransitioning.value = true;
 	}
 	return transitionStarted;
@@ -173,7 +175,12 @@ useAutoplay(
 	() => log.value
 );
 
-useVisibilityChange(isPlaying, play, pause, () => log.value);
+useVisibilityChange(
+	() => isPlaying() || (phase.value === 'firstSlide' && props.autoplay),
+	play,
+	pause,
+	() => log.value
+);
 
 // Compute slide transition info (stored as data attrs for TransitionGroup hooks)
 const getSlideTransitionName = (idx: number) => {
@@ -194,8 +201,9 @@ const getSlideTransitionName = (idx: number) => {
 
 const getSlideTransitionDuration = (idx: number) => {
 	const slide = props.slides[idx];
-	if (isFirstTransition()) return props.firstTransitionDuration;
-	return slide?.transitionDuration || props.transitionDuration;
+	const base = slide?.transitionDuration || props.transitionDuration;
+	if (isFirstTransition()) return props.firstTransitionDuration ?? base;
+	return base;
 };
 
 // 该张幻灯片的有效停留时长，也是 animationDuration: 'auto' 的取值来源
@@ -273,8 +281,8 @@ const handleSlideEnter = (el: Element, done: () => void) => {
 };
 
 const handleSlideLeave = (el: Element, done: () => void) => {
-	// 用目标幻灯片的过渡名，而不是离场元素上残留的上一张的名字
-	getHandlers(currentTransitionName.value, props.transitionDuration).onLeave(el, done);
+	// 用目标幻灯片的过渡名与时长，而不是离场元素上残留的上一张的名字/固定基础时长
+	getHandlers(currentTransitionName.value, currentTransitionDuration.value).onLeave(el, done);
 };
 
 // Track phase changes for onPlay/onPause callbacks
@@ -310,6 +318,12 @@ watch(isTransitioning, (val) => {
 			log.value('幻灯片切换动画完成');
 		}, currentTransitionDuration.value);
 	}
+});
+
+// autoplay 变化只切换播放状态，不重走生命周期
+watch(() => props.autoplay, auto => {
+	if (auto) startPlayback();
+	else stopPlayback();
 });
 
 onMounted(() => {
@@ -361,7 +375,7 @@ defineExpose<VegasHandle>({
 			v-if="defaultBackground && showDefaultBackground()"
 			:background-url="defaultBackground"
 			:leaving="isDefaultBackgroundLeaving()"
-			:transition-duration="firstTransitionDuration"
+			:transition-duration="effectiveFirstTransitionDuration"
 		/>
 
 		<!-- 幻灯片 -->

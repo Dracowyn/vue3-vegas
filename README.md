@@ -91,7 +91,7 @@ import { Vegas } from 'vue3-vegas'
 | `transition` | `string` | `'fade'` | 幻灯片切换过渡效果 |
 | `transitionDuration` | `number` | `1000` | 切换动画时长（ms） |
 | `firstTransition` | `string \| null` | `null` | 第一张幻灯片的进入效果，不设置则使用 `transition` |
-| `firstTransitionDuration` | `number` | `3000` | 第一张幻灯片进入动画时长（ms） |
+| `firstTransitionDuration` | `number \| null` | `null` | 第一张幻灯片进入动画时长（ms），不设置则使用 `transitionDuration` |
 
 **可用过渡效果：**
 
@@ -240,8 +240,8 @@ interface SlideProps {
   cover?: boolean                       // 填充模式，覆盖全局 cover
   video?: {
     src: string[]    // 视频文件列表（建议同时提供 .mp4 / .webm）
-    muted?: boolean  // 是否静音
-    loop?: boolean   // 是否循环；false 时视频结束后自动切换下一张
+    muted?: boolean  // 是否静音，默认 true（不静音会被浏览器自动播放策略拦截）
+    loop?: boolean   // 是否循环，默认 true；false 时视频结束后自动切换下一张
   }
 }
 ```
@@ -390,6 +390,7 @@ const active = ref(0)
 />
 ```
 
+`muted`/`loop` 默认都是 `true`（示例中的 `muted: true` 可省略，这里显式写出只是为了强调）；
 `loop: false` 时视频播放完毕后自动切换到下一张。
 
 ### 随机播放 + 预加载

@@ -18,7 +18,8 @@ export interface VegasProps {
 	align?: 'left' | 'center' | 'right';
 	valign?: 'top' | 'center' | 'bottom';
 	firstTransition?: string | null;
-	firstTransitionDuration?: number;
+	/** 第一张幻灯片进入动画时长（ms）。缺省（`null`）时回退到 `transitionDuration`（与原版 Vegas.js 语义一致） */
+	firstTransitionDuration?: number | null;
 	transition?: string;
 	transitionDuration?: number;
 	animation?: string | null;
@@ -60,7 +61,9 @@ export interface SlideProps {
 	cover?: boolean;
 	video?: {
 		src: string[];
+		/** 是否静音，默认 `true`（与原版 Vegas.js 一致；不静音会被浏览器自动播放策略拦截） */
 		muted?: boolean;
+		/** 是否循环播放，默认 `true`；设为 `false` 时视频结束会自动切换到下一张 */
 		loop?: boolean;
 	};
 }

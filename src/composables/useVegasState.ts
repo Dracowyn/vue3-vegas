@@ -141,8 +141,9 @@ export const useVegasState = (
 				prevOrderIndex = slideOrder.value.length - 1;
 				log()('到达第一张,循环到最后一张');
 			} else {
-				log()('到达第一张,停止播放');
-				stopPlayback?.();
+				// 与原版 Vegas.js 一致：往前走到头只是直接返回，不暂停播放
+				// （停止播放的语义只属于 next 往后走到头,见 next 中的 onEnd/stopPlayback）
+				log()('到达第一张,保持播放状态');
 				return false;
 			}
 		}

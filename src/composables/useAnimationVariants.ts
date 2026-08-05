@@ -6,7 +6,7 @@ export interface VegasTransitionHandlers {
 	onLeave: (el: Element, done: () => void) => void;
 }
 
-export const useAnimationVariants = (getTransitionDuration: () => number) => {
+export const useAnimationVariants = () => {
 	const applyStyles = (el: Element, styles: Record<string, string>) => {
 		Object.assign((el as HTMLElement).style, styles);
 	};
@@ -21,7 +21,9 @@ export const useAnimationVariants = (getTransitionDuration: () => number) => {
 	const buildTransitionShorthand = (styles: Record<string, string>, durationMs: number) =>
 		Object.keys(styles).map(property => `${property} ${durationMs}ms`).join(', ');
 
-	const getHandlers = (name: string, enterDurationMs: number): VegasTransitionHandlers => {
+	// 原版语义：进入与离开共用「目标幻灯片」解析出的同一个时长（durationMs），
+	// 不区分「进入用目标时长、离开用基础时长」。
+	const getHandlers = (name: string, durationMs: number): VegasTransitionHandlers => {
 		const preset = TRANSITION_PRESETS[name] ?? TRANSITION_PRESETS.fade;
 
 		return {
@@ -32,24 +34,22 @@ export const useAnimationVariants = (getTransitionDuration: () => number) => {
 				forceReflow(el);
 				applyStyles(el, {
 					...preset.to,
-					transition: buildTransitionShorthand(preset.to, enterDurationMs),
+					transition: buildTransitionShorthand(preset.to, durationMs),
 				});
-				setTimeout(done, enterDurationMs);
+				setTimeout(done, durationMs);
 			},
 			onLeave: (el, done) => {
-				// 离场固定用基础时长
-				const leaveDurationMs = getTransitionDuration();
 				applyStyles(el, { zIndex: String(VEGAS_LAYERS.slideLeaving) });
 
 				// 无 out 的预设（原版 `X` 变体）：旧图保持不动，仅等待被移除
 				if (preset.out) {
 					applyStyles(el, {
 						...preset.out,
-						transition: buildTransitionShorthand(preset.out, leaveDurationMs),
+						transition: buildTransitionShorthand(preset.out, durationMs),
 					});
 				}
 
-				setTimeout(done, leaveDurationMs);
+				setTimeout(done, durationMs);
 			},
 		};
 	};

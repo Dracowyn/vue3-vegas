@@ -26,6 +26,10 @@ const videoRef = ref<HTMLVideoElement | null>(null);
 const mediaFit = computed(() => (props.slide.cover ?? props.cover) ? 'cover' : 'contain');
 const mediaPosition = computed(() => `${props.slide.align || props.align} ${props.slide.valign || props.valign}`);
 
+// 原版 Vegas.js 视频默认 muted/loop 均为 true：不静音会被浏览器自动播放策略拦截。
+const videoMuted = computed(() => props.slide.video?.muted ?? true);
+const videoLoop = computed(() => props.slide.video?.loop ?? true);
+
 const surfaceStyle = computed<CSSProperties>(() => ({
 	position: 'absolute',
 	top: '0',
@@ -78,7 +82,7 @@ watch(() => props.isMediaPlaying, (playing) => {
 });
 
 const handleVideoEnded = () => {
-	if (!props.slide.video?.loop && props.canAdvance) {
+	if (!videoLoop.value && props.canAdvance) {
 		props.log('视频播放结束,切换到下一张');
 		props.next();
 	}
@@ -102,8 +106,11 @@ const handleImgError = () => {
 				ref="videoRef"
 				:style="videoStyle"
 				:autoplay="isMediaPlaying"
-				:muted="slide.video.muted"
-				:loop="slide.video.loop"
+				:muted="videoMuted"
+				:loop="videoLoop"
+				playsinline
+				preload="auto"
+				:poster="slide.src || undefined"
 				@ended="handleVideoEnded"
 			>
 				<source

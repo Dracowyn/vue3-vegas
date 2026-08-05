@@ -90,8 +90,10 @@ export const useVegasLifecycle = (
 	onMounted(() => { void runLifecycle(); });
 
 	// Re-run lifecycle when relevant props change after mount.
+	// getAutoplay 故意不在依赖里：运行时切换 autoplay 只应切换播放状态
+	// （由 Vegas.vue 中单独的 watch 处理），不应重走 preload/默认背景整个流程。
 	watch(
-		[getPreload, getAutoplay, getHasDefaultBackground, getDefaultBackgroundDuration, getFirstTransitionDuration],
+		[getPreload, getHasDefaultBackground, getDefaultBackgroundDuration, getFirstTransitionDuration],
 		() => { void runLifecycle(); }
 	);
 

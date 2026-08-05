@@ -20,7 +20,7 @@ export const useAutoplay = (
 	};
 
 	watch(
-		[getIsPlaying, getIsTransitioning, getCurrentSlide],
+		[getIsPlaying, getIsTransitioning, getCurrentSlide, getDelay],
 		() => {
 			clearAutoplayTimer();
 
@@ -29,6 +29,10 @@ export const useAutoplay = (
 			const slides = getSlides();
 			const currentSlide = getCurrentSlide();
 			if (!slides[currentSlide]) return;
+
+			// 原版 noshow 语义：只有一张幻灯片时没有可切换的目标,
+			// 不安排定时器,避免空转以及 loop:false 时凭空触发 onEnd
+			if (slides.length < 2) return;
 
 			const currentDelay = slides[currentSlide].delay ?? getDelay();
 			log()(`设置自动播放定时器,延迟: ${currentDelay}ms`);

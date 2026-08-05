@@ -156,6 +156,32 @@ describe('TransitionGroup enter/leave hooks', () => {
 		expect(leaving.style.opacity).not.toBe('0');
 	});
 
+	it('applies the incoming slide transition duration to the leave animation too', async () => {
+		vi.useFakeTimers();
+
+		const wrapper = mountVegas({
+			slides: [
+				{ src: '/a.jpg' },
+				{ src: '/b.jpg', transitionDuration: 3000 },
+			],
+			autoplay: false,
+			transition: 'fade2',
+			transitionDuration: 1000,
+			firstTransitionDuration: 0,
+		});
+
+		await flushEffects();
+
+		(wrapper.vm as unknown as { next: () => void }).next();
+		await flushEffects();
+
+		// 原版语义：进入与离开共用「目标幻灯片」解析出的时长（3000ms），
+		// 不能一边 3 秒淡入、一边 1 秒就消失
+		const leaving = slideElement(wrapper, 0);
+		expect(leaving.style.transition).toContain('opacity 3000ms');
+		expect(leaving.style.transition).not.toContain('opacity 1000ms');
+	});
+
 	it('keeps the settled slide below the overlay and the timer', async () => {
 		vi.useFakeTimers();
 
