@@ -82,6 +82,7 @@ import { Vegas } from 'vue3-vegas'
 | `slide` | `number` | `0` | 初始幻灯片索引 |
 | `autoplay` | `boolean` | `true` | 是否自动播放 |
 | `delay` | `number` | `5000` | 每张幻灯片停留时长（ms） |
+| `videoMaxDelay` | `number` | `300000` | `delay: 'video'` 的视频幻灯片最长停留时长（ms），视频卡住时兜底切走 |
 | `loop` | `boolean` | `true` | 是否循环播放 |
 | `shuffle` | `boolean` | `false` | 是否随机顺序播放 |
 
@@ -127,7 +128,7 @@ import { Vegas } from 'vue3-vegas'
 | Prop | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `animation` | `string \| string[] \| null` | `null` | Ken Burns 动画名，`null` 表示不启用。传数组时每次切换从数组里随机抽一个 |
-| `animationDuration` | `number \| 'auto'` | `'auto'` | 动画时长（ms）。`'auto'` 取该张幻灯片的 `delay` |
+| `animationDuration` | `number \| 'auto'` | `'auto'` | 动画时长（ms）。`'auto'` 取该张幻灯片的 `delay`（`delay: 'video'` 时取全局 `delay`） |
 | `transitionRegister` | `string[]` | — | 注册自定义过渡名，并入内置池供 `transition: 'random'` 抽取 |
 | `animationRegister` | `string[]` | — | 注册自定义动画名，并入内置池供 `animation: 'random'` 抽取 |
 
@@ -305,7 +306,7 @@ import { Vegas } from 'vue3-vegas'
 interface SlideProps {
   src: string                           // 图片 URL（视频幻灯片也需提供封面 URL）
   color?: string | null                 // 幻灯片背景色，覆盖全局 color
-  delay?: number | null                 // 停留时长（ms），覆盖全局 delay
+  delay?: number | 'video' | null       // 停留时长（ms），覆盖全局 delay；视频幻灯片可设 'video' 表示播完一遍再切
   align?: 'left' | 'center' | 'right'  // 水平对齐，覆盖全局 align
   valign?: 'top' | 'center' | 'bottom' // 垂直对齐，覆盖全局 valign
   transition?: string | string[] | null // 过渡效果，覆盖全局 transition（支持数组）
@@ -467,6 +468,24 @@ const active = ref(0)
 
 `muted`/`loop` 默认都是 `true`（示例中的 `muted: true` 可省略，这里显式写出只是为了强调）；
 `loop: false` 时视频播放完毕后自动切换到下一张。
+
+视频幻灯片的停留时长同样由 `delay` 决定，时间一到就切走，不管视频是否播完。想按视频本身的长度播放，把该张的
+`delay` 设为 `'video'`：
+
+```vue
+<Vegas
+  :video-max-delay="120000"
+  :slides="[
+    { src: '/img/poster.jpg', delay: 'video', video: { src: ['/video/intro.mp4'] } },
+    { src: '/img/photo.jpg' },
+  ]"
+/>
+```
+
+- 视频完整播一遍后切到下一张，此时忽略 `video.loop`（循环的视频永远不会结束）。
+- 视频卡在缓冲、迟迟播不完时，停留满 `videoMaxDelay`（默认 5 分钟）兜底切走；所有视频源都加载失败、或播放途中出致命错误时直接切走。
+- 只有一张幻灯片时没有可切换的目标，照 `video.loop` 播放。
+- 进入播放状态时组件会主动调用 `play()`，不只依赖 `autoplay` 属性，大码率视频在慢网络下也能边下边播。
 
 ### 随机播放 + 预加载
 

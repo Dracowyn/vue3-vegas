@@ -94,7 +94,7 @@ rule wins. This is safe ordering-wise because slides only render from the `first
 which is reached after every `onMounted` in the tree has run.
 
 ### Supporting composables
-- [useAutoplay.ts](src/composables/useAutoplay.ts) — watches `isPlaying`/`isTransitioning`/`currentSlide`; schedules a per-slide `delay` timer that calls `next()`.
+- [useAutoplay.ts](src/composables/useAutoplay.ts) — watches `isPlaying`/`isTransitioning`/`currentSlide`; schedules a per-slide `delay` timer that calls `next()`. The effective delay is resolved in `Vegas.vue` (`getSlideDelay`): a video slide with `delay: 'video'` uses `videoMaxDelay` as a fallback timer, and `VegasSlideRenderer` advances early on `ended` (or when the last `<source>` errors) via the `advanceOnEnded` prop. Animation `'auto'` duration uses `getSlideBaseDelay`, never the fallback cap.
 - [usePreload.ts](src/composables/usePreload.ts) — batched image preloading (`preloadImageBatch` concurrency) tracked in `loadedImages`/`loadProgress`, plus `<link rel="preload" as="video">` injection (cleaned up on unmount).
 - [useVisibilityChange.ts](src/composables/useVisibilityChange.ts) — pauses on tab hide, resumes only if it was playing before.
 - [useLogger.ts](src/composables/useLogger.ts) — debug-gated `console` wrappers; returns a no-op logger when `debug` is false.

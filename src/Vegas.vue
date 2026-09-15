@@ -22,6 +22,7 @@ import { resolveEffectDuration, resolveEffectName } from './utils/resolveEffect'
 const props = withDefaults(defineProps<VegasProps>(), {
 	slide: 0,
 	delay: 5000,
+	videoMaxDelay: 300000,
 	loop: true,
 	preload: false,
 	preloadImage: false,
@@ -165,12 +166,31 @@ const toggle = () => {
 	}
 };
 
+// 该张是否「视频播完再切」：delay 为 'video' 且确实是视频幻灯片
+const playsUntilEnded = (idx: number) => {
+	const slide = props.slides[idx];
+	return slide?.delay === 'video' && Boolean(slide.video);
+};
+
+// 播完再切需要有下一张可切；只有一张时视频照 video.loop 播，不强制只播一遍
+const getAdvanceOnEnded = (idx: number) => playsUntilEnded(idx) && props.slides.length > 1;
+
+// 该张幻灯片的数值停留时长（不含 'video' 兜底上限），也是 animationDuration: 'auto' 的取值来源。
+// 播完再切的视频时长事先不知道，Ken Burns 按全局 delay 走完后停在结束帧（forwards）
+const getSlideBaseDelay = (idx: number) => {
+	const delay = props.slides[idx]?.delay;
+	return typeof delay === 'number' ? delay : props.delay;
+};
+
+// 自动播放定时器用的停留时长：播完再切的视频以 videoMaxDelay 兜底，正常播完由 ended 提前切走
+const getSlideDelay = (idx: number) => (playsUntilEnded(idx) ? props.videoMaxDelay : getSlideBaseDelay(idx));
+
 useAutoplay(
 	isPlaying,
 	() => isTransitioning.value,
 	() => currentSlide.value,
-	() => props.slides,
-	() => props.delay,
+	() => props.slides.length,
+	() => getSlideDelay(currentSlide.value),
 	next,
 	() => log.value
 );
@@ -206,9 +226,6 @@ const getSlideTransitionDuration = (idx: number) => {
 	return base;
 };
 
-// 该张幻灯片的有效停留时长，也是 animationDuration: 'auto' 的取值来源
-const getSlideDelay = (idx: number) => props.slides[idx]?.delay ?? props.delay;
-
 // 该张幻灯片请求的动画名（可能是 `'random'`，此时还未抽取）
 const getRequestedAnimation = (idx: number) => props.slides[idx]?.animation ?? props.animation;
 
@@ -226,8 +243,8 @@ const getSlideAnimationDuration = (idx: number) => {
 	const slide = props.slides[idx];
 	return resolveEffectDuration(
 		slide?.animationDuration ?? props.animationDuration,
-		getSlideDelay(idx),
-		getSlideDelay(idx)
+		getSlideBaseDelay(idx),
+		getSlideBaseDelay(idx)
 	);
 };
 
@@ -411,6 +428,8 @@ defineExpose<VegasHandle>({
 				:animation-duration="getSlideAnimationDuration(idx)"
 				:is-media-playing="phase !== 'paused'"
 				:can-advance="phase === 'playing'"
+				:advance-on-ended="getAdvanceOnEnded(idx)"
+				:get-current-slide="current"
 				:next="next"
 				:log="log"
 				:log-warn="logWarn"

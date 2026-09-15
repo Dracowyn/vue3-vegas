@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import type { CSSProperties } from 'vue';
 import type { SlideProps, Logger } from '../types';
 import {
@@ -19,6 +19,14 @@ const props = defineProps<{
 	animationDuration: number;
 	isMediaPlaying: boolean;
 	canAdvance: boolean;
+	/** 视频完整播一遍后切到下一张（slide.delay 为 'video' 且有下一张可切） */
+	advanceOnEnded: boolean;
+	/**
+	 * 读取当前幻灯片下标。切换时上一张还要挂载一个过渡时长做离场动画，离场中的视频播完或出错
+	 * 不能再调 next()，否则会连跳一张。必须传函数而不是布尔 prop：离场节点已经移出
+	 * TransitionGroup 的列表，Vue 不会再给它更新 props，布尔值会一直停在「是当前」
+	 */
+	getCurrentSlide: () => number;
 	next: () => void;
 	log: Logger;
 	logWarn: Logger;
@@ -33,6 +41,8 @@ const mediaPosition = computed(() => `${props.slide.align || props.align} ${prop
 // 原版 Vegas.js 视频默认 muted/loop 均为 true：不静音会被浏览器自动播放策略拦截。
 const videoMuted = computed(() => props.slide.video?.muted ?? true);
 const videoLoop = computed(() => props.slide.video?.loop ?? true);
+// 播完再切时必须关掉 loop，否则 ended 永远不会触发
+const effectiveLoop = computed(() => !props.advanceOnEnded && videoLoop.value);
 
 const surfaceStyle = computed<CSSProperties>(() => ({
 	position: 'absolute',
@@ -86,8 +96,7 @@ const imgStyle = computed<CSSProperties>(() => ({
 	...animationStyle.value,
 }));
 
-// Control video play/pause
-watch(() => props.isMediaPlaying, (playing) => {
+const syncVideoPlayback = (playing: boolean) => {
 	if (!props.slide.video || !videoRef.value) return;
 
 	if (!playing) {
@@ -101,13 +110,58 @@ watch(() => props.isMediaPlaying, (playing) => {
 			props.logWarn(`视频播放被浏览器阻止: ${props.slide.src}`, error);
 		});
 	}
+};
+
+watch(() => props.isMediaPlaying, syncVideoPlayback);
+
+// 挂载时就处于播放状态也要主动 play()：autoplay 属性要等浏览器判断能流畅播完
+// （readyState 4）才起播，大码率视频在慢网络下会一直停在封面；play() 在有数据时就开始边下边播
+onMounted(() => {
+	if (props.isMediaPlaying) syncVideoPlayback(true);
+});
+
+// 视频播完（或所有源都加载失败）后是否该切走
+const shouldAdvanceAfterVideo = () => props.advanceOnEnded || !videoLoop.value;
+
+// 播完时可能还不能切（例如短视频在首帧过渡期间就播完了），记下来等 canAdvance 变 true 再切
+let pendingAdvance = false;
+
+const advanceAfterVideo = (reason: string) => {
+	if (props.getCurrentSlide() !== props.index || !shouldAdvanceAfterVideo()) {
+		pendingAdvance = false;
+		return;
+	}
+	if (!props.canAdvance) {
+		pendingAdvance = true;
+		return;
+	}
+	pendingAdvance = false;
+	props.log(`${reason},切换到下一张`);
+	props.next();
+};
+
+watch(() => props.canAdvance, (canAdvance) => {
+	if (canAdvance && pendingAdvance) advanceAfterVideo('视频已提前结束');
 });
 
 const handleVideoEnded = () => {
-	if (!videoLoop.value && props.canAdvance) {
-		props.log('视频播放结束,切换到下一张');
-		props.next();
-	}
+	advanceAfterVideo('视频播放结束');
+};
+
+// <video> 用 <source> 子元素时，加载失败的 error 事件派发在各个 <source> 上而不是 <video> 上，
+// 最后一个源也失败才说明整段视频放不出来
+const handleSourceError = (index: number) => {
+	const sources = props.slide.video?.src ?? [];
+	if (index !== sources.length - 1) return;
+	props.logError(`视频所有源都加载失败: ${props.slide.src}`);
+	if (props.advanceOnEnded) advanceAfterVideo('视频无法播放');
+};
+
+// 源已经选中之后的致命错误（解码失败、网络彻底中断）派发在 <video> 本身上
+const handleVideoError = () => {
+	const code = videoRef.value?.error?.code;
+	props.logError(`视频播放出错${code ? `（MediaError ${code}）` : ''}: ${props.slide.src}`);
+	if (props.advanceOnEnded) advanceAfterVideo('视频播放出错');
 };
 
 const handleImgError = () => {
@@ -130,16 +184,18 @@ const handleImgError = () => {
 				:style="videoStyle"
 				:autoplay="isMediaPlaying"
 				:muted="videoMuted"
-				:loop="videoLoop"
+				:loop="effectiveLoop"
 				playsinline
 				preload="auto"
 				:poster="slide.src || undefined"
 				@ended="handleVideoEnded"
+				@error="handleVideoError"
 			>
 				<source
 					v-for="(src, i) in slide.video.src"
 					:key="i"
 					:src="src"
+					@error="handleSourceError(i)"
 				/>
 			</video>
 		</template>

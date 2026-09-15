@@ -1,6 +1,11 @@
 export interface VegasProps {
 	slide?: number;
 	delay?: number;
+	/**
+	 * `delay: 'video'` 的视频幻灯片最长停留多久（ms），默认 300000（5 分钟）。
+	 * 视频卡在缓冲、迟迟播不完时靠它兜底切走，正常播完会提前切换。
+	 */
+	videoMaxDelay?: number;
 	loop?: boolean;
 	preload?: boolean;
 	preloadImage?: boolean;
@@ -63,7 +68,12 @@ export interface VegasProps {
 export interface SlideProps {
 	src: string;
 	color?: string | null;
-	delay?: number | null;
+	/**
+	 * 停留时长（ms），覆盖全局 delay。
+	 * 视频幻灯片可设为 `'video'`：完整播一遍再切（忽略 `video.loop`），最长不超过 `videoMaxDelay`；
+	 * 所有视频源都加载失败或播放途中出致命错误时直接切走。图片幻灯片上设 `'video'` 等同未设置。
+	 */
+	delay?: number | 'video' | null;
 	align?: 'left' | 'center' | 'right';
 	valign?: 'top' | 'center' | 'bottom';
 	/** 过渡效果，覆盖全局 transition。支持数组（同 `VegasProps.transition`） */
