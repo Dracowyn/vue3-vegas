@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { nextTick } from 'vue';
 import Vegas from '../src/Vegas.vue';
-import { advanceTimers, flushEffects } from './helpers';
+import { advanceTimers, capturePreloadedVideos, flushEffects } from './helpers';
 
 const slides = [
 	{ src: '/slide-1.jpg' },
@@ -95,7 +95,9 @@ describe('Vegas', () => {
 		expect(findSlideBySource(wrapper, slides[1].src)).toBe(false);
 	});
 
-	it('preloads video sources and cleans them up on unmount', async () => {
+	it('preloads video sources into detached <video> elements and releases them on unmount', async () => {
+		const capture = capturePreloadedVideos();
+
 		const wrapper = mount(Vegas, {
 			props: {
 				slides: [{
@@ -114,17 +116,19 @@ describe('Vegas', () => {
 
 		await flushEffects();
 
-		// Wait for preload links to be added
-		await new Promise(resolve => setTimeout(resolve, 50));
+		expect(capture.preloaded()).toEqual([['/intro.mp4', '/intro.webm']]);
 
-		const preloadLinks = Array.from(document.head.querySelectorAll('link[rel="preload"]'));
-		const preloadSources = preloadLinks.map(link => link.getAttribute('href'));
-
-		expect(preloadSources).toEqual(['/intro.mp4', '/intro.webm']);
+		const [preloader] = capture.elements();
+		expect(preloader.preload).toBe('auto');
+		// 预热 HTTP 缓存用，绝不能挂进文档——挂进去就成了页面上一个看不见的播放器
+		expect(preloader.parentNode).toBeNull();
 
 		wrapper.unmount();
 
-		expect(document.head.querySelectorAll('link[rel="preload"]')).toHaveLength(0);
+		// 卸载后清空源，让浏览器中断还没下完的下载
+		expect(preloader.querySelectorAll('source')).toHaveLength(0);
+
+		capture.restore();
 	});
 
 	it('preloads images when only preloadImage is enabled (no master preload)', async () => {

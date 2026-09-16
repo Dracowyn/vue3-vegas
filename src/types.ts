@@ -83,14 +83,25 @@ export interface SlideProps {
 	animation?: string | string[] | null;
 	animationDuration?: number | 'auto' | null;
 	cover?: boolean;
-	video?: {
-		src: string[];
-		/** 是否静音，默认 `true`（与原版 Vegas.js 一致；不静音会被浏览器自动播放策略拦截） */
-		muted?: boolean;
-		/** 是否循环播放，默认 `true`；设为 `false` 时视频结束会自动切换到下一张 */
-		loop?: boolean;
-	};
+	video?: SlideVideo;
 }
+
+export interface SlideVideoConfig {
+	src: string[];
+	/**
+	 * 是否静音，默认 `true`（与原版 Vegas.js 一致；不静音会被浏览器自动播放策略拦截）。
+	 * 设为 `false` 时，视频进入会随过渡淡入音量、离场会淡出并暂停，避免新旧两段声音硬切重叠。
+	 */
+	muted?: boolean;
+	/** 是否循环播放，默认 `true`；设为 `false` 时视频结束会自动切换到下一张 */
+	loop?: boolean;
+}
+
+/**
+ * 视频配置。数组简写 `['a.mp4', 'b.webm']` 等价于 `{ src: ['a.mp4', 'b.webm'] }`
+ * （`muted` / `loop` 取默认值 `true`），与原版 Vegas.js 一致。
+ */
+export type SlideVideo = string[] | SlideVideoConfig;
 
 export interface VegasHandle {
 	/** 切换到上一张，返回是否真的开始了切换 */

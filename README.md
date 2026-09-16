@@ -8,7 +8,7 @@
 
 ## 特性
 
-- 图片 & 视频幻灯片支持
+- 图片 & 视频幻灯片支持（含不静音视频的声音淡入淡出）
 - 27 种内置过渡效果，其中 26 种与原版 Vegas.js 一一对应，另加 `zoomInOut` 扩展效果
 - 9 种 Ken Burns 缓慢推拉镜头动画
 - `transition` / `animation` 支持 `'random'`（可用 register 注册自定义名并入候选池）与数组形式（从数组中随机抽取）
@@ -263,10 +263,14 @@ import { Vegas } from 'vue3-vegas'
 
 | Prop | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `preload` | `boolean` | `false` | 播放前等待所有资源预加载完成 |
+| `preload` | `boolean` | `false` | 主开关，等价于同时开启 `preloadImage` 与 `preloadVideo` |
 | `preloadImage` | `boolean` | `false` | 预加载图片资源 |
 | `preloadImageBatch` | `number` | `3` | 图片预加载并发批次数 |
-| `preloadVideo` | `boolean` | `false` | 预加载视频资源 |
+| `preloadVideo` | `boolean` | `false` | 预加载视频资源（后台预热缓存，不阻塞播放） |
+
+> 只有**图片**预加载会卡住播放（`showLoading` 的进度条也只统计图片）。视频走游离
+> `<video preload="auto">` 在后台预热 HTTP 缓存，不阻塞首帧，组件卸载时会中断未完成的下载 ——
+> 与原版 Vegas.js 的行为一致。
 
 ### 回调
 
@@ -314,7 +318,7 @@ interface SlideProps {
   animation?: string | string[] | null  // Ken Burns 动画名，覆盖全局 animation（支持数组）
   animationDuration?: number | 'auto' | null // 动画时长（ms），覆盖全局 animationDuration
   cover?: boolean                       // 填充模式，覆盖全局 cover
-  video?: {
+  video?: string[] | {                  // 数组简写等价于 { src: [...] }
     src: string[]    // 视频文件列表（建议同时提供 .mp4 / .webm）
     muted?: boolean  // 是否静音，默认 true（不静音会被浏览器自动播放策略拦截）
     loop?: boolean   // 是否循环，默认 true；false 时视频结束后自动切换下一张
@@ -468,6 +472,31 @@ const active = ref(0)
 
 `muted`/`loop` 默认都是 `true`（示例中的 `muted: true` 可省略，这里显式写出只是为了强调）；
 `loop: false` 时视频播放完毕后自动切换到下一张。
+
+只需要指定视频源时可以用数组简写，与原版 Vegas.js 一致 —— 等价于 `{ src: [...] }`，`muted`/`loop` 取默认值：
+
+```vue
+<Vegas
+  :slides="[
+    { src: '/img/poster.jpg', video: ['/video/intro.mp4', '/video/intro.webm'] },
+  ]"
+/>
+```
+
+> 源列表为空（`video: []` 或 `video: { src: [] }`）时该张按**图片**幻灯片渲染。没有任何 `<source>` 的
+> `<video>` 既放不出画面，也永远不会触发 `ended`，配上 `delay: 'video'` 只能干等到 `videoMaxDelay`
+> 才切得走；开启 `debug` 会在控制台告警。原版这里会照渲一个空 `<video>`，没有照搬。
+
+#### 声音淡入淡出
+
+`muted: false` 的视频在切换时不会硬切声音（对齐原版 Vegas.js 的 `_fadeInSound` / `_fadeOutSound`）：
+
+- **进入**的视频音量从 `0` 淡入到满，用时与本次过渡的 `transitionDuration` 一致。
+- **离场**的视频音量淡出到 `0`，淡出结束时暂停播放 —— 否则它会一直放到元素被移除为止，和新视频的声音重叠。
+- `muted: true`（默认）的视频不会被改动音量，只在离场时暂停。
+
+> 浏览器的自动播放策略会拦截带声音的自动播放。`muted: false` 通常需要用户先与页面产生交互，
+> 否则 `play()` 会被拒绝（开启 `debug` 可在控制台看到告警）。
 
 视频幻灯片的停留时长同样由 `delay` 决定，时间一到就切走，不管视频是否播完。想按视频本身的长度播放，把该张的
 `delay` 设为 `'video'`：

@@ -10,6 +10,11 @@ Object.defineProperty(HTMLMediaElement.prototype, 'pause', {
 	value: vi.fn(),
 });
 
+Object.defineProperty(HTMLMediaElement.prototype, 'load', {
+	configurable: true,
+	value: vi.fn(),
+});
+
 afterEach(() => {
 	document.head.innerHTML = '';
 	document.body.innerHTML = '';

@@ -14,6 +14,8 @@ import { useVegasLifecycle } from './composables/useVegasLifecycle';
 import { useAutoplay } from './composables/useAutoplay';
 import { useVisibilityChange } from './composables/useVisibilityChange';
 import { injectKeyframes, injectRootStyles } from './utils/injectKeyframes';
+import { fadeOutSlideVideo } from './utils/videoSound';
+import { resolveSlideVideo } from './utils/videoSource';
 import { VEGAS_ROOT_CLASS, VEGAS_ROOT_VARIABLES_CSS } from './constants/rootStyles';
 import { KEN_BURNS_KEYFRAMES_CSS, KEN_BURNS_NAMES } from './composables/kenBurnsPresets';
 import { TRANSITION_NAMES } from './composables/transitionPresets';
@@ -166,10 +168,11 @@ const toggle = () => {
 	}
 };
 
-// 该张是否「视频播完再切」：delay 为 'video' 且确实是视频幻灯片
+// 该张是否「视频播完再切」：delay 为 'video' 且确实是视频幻灯片。
+// 空源视频会被 resolveSlideVideo 判为非视频（按图片渲染），不能再拿 videoMaxDelay 兜底
 const playsUntilEnded = (idx: number) => {
 	const slide = props.slides[idx];
-	return slide?.delay === 'video' && Boolean(slide.video);
+	return slide?.delay === 'video' && resolveSlideVideo(slide?.video) !== null;
 };
 
 // 播完再切需要有下一张可切；只有一张时视频照 video.loop 播，不强制只播一遍
@@ -307,6 +310,10 @@ const handleSlideEnter = (el: Element, done: () => void) => {
 };
 
 const handleSlideLeave = (el: Element, done: () => void) => {
+	// 离场视频的声音随过渡淡出并在结束时暂停（原版 `_fadeOutSound`）。离场节点收不到
+	// props 更新，没人替它 pause，不处理的话声音会一直放到元素被移除
+	fadeOutSlideVideo(el, currentTransitionDuration.value);
+
 	// 用目标幻灯片的过渡名与时长，而不是离场元素上残留的上一张的名字/固定基础时长
 	getHandlers(currentTransitionName.value, currentTransitionDuration.value).onLeave(el, done);
 };
@@ -426,6 +433,7 @@ defineExpose<VegasHandle>({
 				:color="color"
 				:animation-name="currentAnimationName"
 				:animation-duration="getSlideAnimationDuration(idx)"
+				:transition-duration="getSlideTransitionDuration(idx)"
 				:is-media-playing="phase !== 'paused'"
 				:can-advance="phase === 'playing'"
 				:advance-on-ended="getAdvanceOnEnded(idx)"

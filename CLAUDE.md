@@ -95,7 +95,7 @@ which is reached after every `onMounted` in the tree has run.
 
 ### Supporting composables
 - [useAutoplay.ts](src/composables/useAutoplay.ts) — watches `isPlaying`/`isTransitioning`/`currentSlide`; schedules a per-slide `delay` timer that calls `next()`. The effective delay is resolved in `Vegas.vue` (`getSlideDelay`): a video slide with `delay: 'video'` uses `videoMaxDelay` as a fallback timer, and `VegasSlideRenderer` advances early on `ended` (or when the last `<source>` errors) via the `advanceOnEnded` prop. Animation `'auto'` duration uses `getSlideBaseDelay`, never the fallback cap.
-- [usePreload.ts](src/composables/usePreload.ts) — batched image preloading (`preloadImageBatch` concurrency) tracked in `loadedImages`/`loadProgress`, plus `<link rel="preload" as="video">` injection (cleaned up on unmount).
+- [usePreload.ts](src/composables/usePreload.ts) — batched image preloading (`preloadImageBatch` concurrency) tracked in `loadedImages`/`loadProgress`, plus video preloading. The video half warms the HTTP cache with **detached `<video preload="auto">` elements** (the array of them must stay referenced or GC can abort the download; `releasePreloadVideos` empties the sources and re-`load()`s to cancel in-flight downloads on unmount). This mirrors upstream's `_video()`. Do **not** "simplify" it back to `<link rel="preload" as="video">` — `as="video"` is not a supported preload destination in Chrome or Safari and is no longer listed by MDN, so those links are silently ignored and the feature becomes a no-op. Only images gate startup; videos download in the background, as upstream does.
 - [useVisibilityChange.ts](src/composables/useVisibilityChange.ts) — pauses on tab hide, resumes only if it was playing before.
 - [useLogger.ts](src/composables/useLogger.ts) — debug-gated `console` wrappers; returns a no-op logger when `debug` is false.
 
@@ -105,6 +105,8 @@ which is reached after every `onMounted` in the tree has run.
 - `preLoadImageBatch` is a **deprecated alias** for `preloadImageBatch` (`effectivePreloadImageBatch` resolves both, default 3).
 - The parent container must have an explicit height — the component fills 100% width/height of its parent.
 - [sanitizeUrl.ts](src/utils/sanitizeUrl.ts) escapes CSS `url()` values to prevent injection — use it for any URL interpolated into CSS.
+- `slide.video` accepts the original's two shapes (`['a.mp4']` shorthand or `{ src, muted, loop }`). Always read it through [`resolveSlideVideo`](src/utils/videoSource.ts) rather than touching `slide.video.src` directly — it also returns `null` for an **empty** source list, which is what makes such a slide fall back to `<img>`. Anything that asks "is this a video slide?" must go through it too, or the two answers drift: `playsUntilEnded` in `Vegas.vue` would hand a sourceless slide the `videoMaxDelay` fallback timer (5 min of dead air) while the renderer shows an image.
+- Unmuted video sound is cross-faded across the transition ([videoSound.ts](src/utils/videoSound.ts), porting the original's `_fadeInSound`/`_fadeOutSound`). The **enter** side lives in `VegasSlideRenderer`'s `onMounted` (it owns `videoRef`); the **leave** side must stay in `Vegas.vue`'s `handleSlideLeave`, which digs the `<video>` out of the detached element with `querySelector` — a leaving slide is off the `TransitionGroup` list and gets no further prop updates, so nothing else would ever `pause()` it.
 
 ## Testing
 
