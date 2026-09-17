@@ -82,10 +82,12 @@ live. Never key that guard on the slide index alone.
 
 ### Stacking and injected root styles
 [constants/layers.ts](src/constants/layers.ts) owns the single `z-index` scale
-(`slideLeaving 0 < slideEntering 1 < overlay 2 < timer 3 < loader 10`). All layers are
-siblings of one non-isolating root container, so the entering slide's `z-index: 1` — set by
-the enter hook and deliberately *kept* after the animation settles — would hide the overlay
-and timer if those did not sit above it. Add any new layer here, never with a literal.
+(`defaultBackground 0 = slideLeaving 0 < slideEntering 1 < overlay 2 < timer 3 < loader 10`).
+The root container sets `isolation: isolate`, so this scale is confined to the component and
+never leaks into the host page's stacking. Inside it, though, all layers are siblings with no
+intermediate stacking context, so the entering slide's `z-index: 1` — set by the enter hook and
+deliberately *kept* after the animation settles — would hide the overlay and timer if those did
+not sit above it. Add any new layer here, never with a literal.
 
 The six tuning CSS custom properties live in
 [constants/rootStyles.ts](src/constants/rootStyles.ts) and are injected via

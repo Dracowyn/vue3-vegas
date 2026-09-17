@@ -21,7 +21,7 @@
 - 半透明遮罩层（overlay）
 - 加载进度指示器
 - 页面隐藏时自动暂停，重新可见时恢复
-- 手动控制 API：play / pause / next / previous
+- 手动控制 API：play / pause / toggle / next / previous / goTo，以及 playing() / current() 状态查询
 - 完整 TypeScript 类型支持
 
 ---
@@ -533,6 +533,8 @@ const active = ref(0)
 
 ## 开发
 
+开发环境需要 Node.js `^22.22.2`、`^24.15.0` 或 `>=26`（jsdom 30 与 vitest 5 的要求）。
+
 ```bash
 # 安装依赖
 pnpm install
@@ -561,9 +563,13 @@ MIT
 
 ---
 
-## 从 0.2.x 升级到 0.3.0
+## 从 0.2.x 升级到 0.4.0 及以上
 
-0.3.0 让过渡效果严格对齐原版 Vegas.js 的语义，有三处观感变化：
+0.3.0 没有发布到 npm，下面的变化都随 0.4.0 一起到达。
+
+### 过渡效果
+
+过渡效果严格对齐了原版 Vegas.js 的语义，有三处观感变化：
 
 1. **`fade`、`slideLeft`、`slideRight`、`zoomIn`、`zoomOut` 不再让旧幻灯片做离场动画。**
    想保留 0.2.x 的双向效果，把名字改成带 `2` 后缀的版本即可，例如 `fade` → `fade2`。
@@ -576,3 +582,11 @@ MIT
 
 - **`zoomOut` 可以调**：它的起始缩放就是这个变量，`--vegas-zoom-scale: 1.25` 即可回到 0.2.x 的观感。
 - **`zoomIn` 调不了**：`zoomIn` 的起点是硬编码的 `scale(0)`，这个变量只出现在它的离场状态里（即只对 `zoomIn2` 的旧图生效），无法用来恢复 0.2.x 的 `scale(0.5)`。想要更柔和的放大，请改用 `zoomInOut` 或自行包一层 CSS。
+
+### 默认值
+
+- **`firstTransitionDuration` 默认值由 `3000` 改为 `null`**，缺省时回退到 `transitionDuration`（默认 `1000`），
+  第一张的进入动画从 3 秒变成 1 秒。想保留旧节奏，显式传 `:first-transition-duration="3000"`。
+- **视频的 `muted` / `loop` 默认值改为 `true`**，与原版 Vegas.js 一致。0.2.x 里不写这两项时，视频既不静音
+  （常被浏览器自动播放策略拦下），也不循环，放完就切到下一张；现在默认静音循环，只按 `delay` 切走。
+  想保留「放完就切」，给该张设 `loop: false`，或（0.5.0 起）设 `delay: 'video'`。
