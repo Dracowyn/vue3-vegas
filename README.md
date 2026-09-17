@@ -628,7 +628,7 @@ Transitions now follow the semantics of the original Vegas.js exactly, which bri
 
 ---
 
-## Behavior changes after 0.5.0 (unreleased)
+## Upgrading from 0.5.x to 0.6.0
 
 - **CSS variables now use fallback values instead of injected styles.** Reading one of these variables with `getComputedStyle()` on the component root now returns an empty string unless you have set it yourself. Overriding the variables on the root or any ancestor works as before.
 
@@ -637,3 +637,9 @@ Transitions now follow the semantics of the original Vegas.js exactly, which bri
 - **Changing `transitionDuration`, `firstTransitionDuration`, `defaultBackgroundDuration`, `preload`, or `defaultBackground` after playback starts no longer restarts the startup sequence.** Changes only affect subsequent slides. During the startup phase itself, changes still trigger a restart.
 
 - **Adding or removing slides now preserves playback position.** The component continues showing the same slide instead of jumping back to the initial position. If the current index falls out of range, it clamps to the last slide without firing `onWalk`. Modifying `slide` or `shuffle` still triggers full re-initialization.
+
+- **Unmuted videos now fade their sound in and out across a transition**, as in the original Vegas.js. The incoming video fades from silent to full volume once it starts playing; the outgoing one fades to silent and is paused. Previously the outgoing video kept playing until its element was removed. Muted videos (the default) are unaffected.
+
+- **A slide whose video source list is empty (`video: []` or `{ src: [] }`) now renders as an image slide**, using its `src`. Such a slide also no longer gets the `videoMaxDelay` fallback timer under `delay: 'video'`.
+
+- **New exports: `TRANSITION_NAMES` / `KEN_BURNS_NAMES`**, their types `VegasTransitionName` / `VegasAnimationName` / `VegasEffectName`, and the guards `isVegasTransitionName` / `isVegasAnimationName`. If your backend whitelists effect names, validate against these lists instead of a hand-copied one, so effects added in later versions are not silently rejected.

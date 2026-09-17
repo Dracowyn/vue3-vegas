@@ -626,7 +626,7 @@ MIT
 
 ---
 
-## 0.5.0 之后的行为变化（未发布）
+## 从 0.5.x 升级到 0.6.0
 
 - **CSS 变量现在用回退值而不是注入样式。** `getComputedStyle()` 在根元素上读不到这些变量（除非你主动设置）—— 回退值只在 CSS 计算内生效。在根容器或任意祖先设置变量仍然照常工作。
 
@@ -635,3 +635,9 @@ MIT
 - **启动完成后修改 `transitionDuration` / `firstTransitionDuration` / `defaultBackgroundDuration` / `preload` / `defaultBackground` 不再重启启动流程。** 改动仅影响后续切换。启动流程进行中时修改仍会触发重新启动。
 
 - **增删 `slides` 现在保留播放位置。** 组件继续显示同一张幻灯片而非跳回初始位置。若当前下标越界则自动钳到最后一张，不触发 `onWalk`。修改 `slide` 或 `shuffle` 仍然重新初始化。
+
+- **不静音的视频在切换时声音淡入淡出**，与原版 Vegas.js 一致。进入的视频在真正起播后从无声淡到满音量；离场的视频淡到无声并暂停。此前离场视频会一直播放到元素被移除。静音视频（默认）不受影响。
+
+- **视频源列表为空（`video: []` 或 `{ src: [] }`）的幻灯片现在按图片幻灯片渲染**，使用它的 `src`。这类幻灯片配 `delay: 'video'` 时也不再套用 `videoMaxDelay` 兜底计时。
+
+- **新增导出 `TRANSITION_NAMES` / `KEN_BURNS_NAMES`**，以及类型 `VegasTransitionName` / `VegasAnimationName` / `VegasEffectName` 和类型守卫 `isVegasTransitionName` / `isVegasAnimationName`。后端如果对效果名做白名单校验，请改用这两份名单而不是手抄一份，免得以后版本新增的效果被悄悄拒掉。

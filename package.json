@@ -1,6 +1,6 @@
 {
   "name": "vue3-vegas",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "type": "module",
   "description": "Vegas.js for Vue 3 — a full-screen slideshow/background component",
   "author": "Dracowyn",
