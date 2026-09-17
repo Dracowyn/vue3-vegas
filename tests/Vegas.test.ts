@@ -166,7 +166,10 @@ describe('Vegas', () => {
 			await flushEffects();
 			await flushEffects();
 
-			expect(createdSrcs).toEqual(['/slide-1.jpg', '/slide-2.jpg']);
+			// 首帧下标（slide-1.jpg）会多出现一次：useVegasLifecycle 进入 firstSlide 前
+			// 会独立等待首张幻灯片图片就绪（与本次 preloadImage 批量预加载并行发起，
+			// 详见 src/composables/useVegasLifecycle.ts），产生一次额外的 `new Image()`
+			expect(createdSrcs).toEqual(['/slide-1.jpg', '/slide-1.jpg', '/slide-2.jpg']);
 		} finally {
 			global.Image = OriginalImage;
 		}
@@ -206,7 +209,10 @@ describe('Vegas', () => {
 			await flushEffects();
 			await flushEffects();
 
-			expect(createdSrcs).toEqual(['/slide-1.jpg', '/slide-2.jpg']);
+			// 首帧下标（slide-1.jpg）会多出现一次：useVegasLifecycle 进入 firstSlide 前
+			// 会独立等待首张幻灯片图片就绪（与本次 preloadImage 批量预加载并行发起，
+			// 详见 src/composables/useVegasLifecycle.ts），产生一次额外的 `new Image()`
+			expect(createdSrcs).toEqual(['/slide-1.jpg', '/slide-1.jpg', '/slide-2.jpg']);
 		} finally {
 			global.Image = OriginalImage;
 		}
@@ -408,7 +414,10 @@ describe('Vegas', () => {
 			.toHaveLength(1);
 	});
 
-	it('exposes the vegas tuning CSS variables on the container', async () => {
+	it('no longer injects a default-value stylesheet for the tuning CSS variables', async () => {
+		document.head.querySelectorAll('style[data-vue3-vegas-root]')
+			.forEach(node => node.remove());
+
 		const wrapper = mount(Vegas, {
 			props: { slides: [slides[0]], autoplay: false, firstTransitionDuration: 0 },
 			attachTo: document.body,
@@ -416,13 +425,13 @@ describe('Vegas', () => {
 
 		await flushEffects();
 
-		const container = wrapper.element as HTMLDivElement;
-		const computed = window.getComputedStyle(container);
-		expect(computed.getPropertyValue('--vegas-kenburns-scale').trim()).toBe('1.5');
-		expect(computed.getPropertyValue('--vegas-zoom-scale').trim()).toBe('2');
-
-		// 必须来自样式表而不是行内声明，否则使用者无法覆盖
-		expect(container.style.getPropertyValue('--vegas-kenburns-scale')).toBe('');
+		// 默认值现在写在 var(--x, 默认值) 的回退里，不再需要注入样式表
+		expect(document.head.querySelector('style[data-vue3-vegas-root]')).toBeNull();
+		// Ken Burns 的 keyframes 注入机制不受影响，仍然存在
+		expect(document.head.querySelector('style[data-vue3-vegas-keyframes]')).not.toBeNull();
+		// 根元素仍带这个类，方便使用者用它当选择器覆盖调节变量
+		expect((wrapper.element as HTMLDivElement).classList.contains('vue3-vegas-root'))
+			.toBe(true);
 
 		wrapper.unmount();
 	});
@@ -442,10 +451,9 @@ describe('Vegas', () => {
 
 		const computed = window.getComputedStyle(wrapper.element as HTMLDivElement);
 		expect(computed.getPropertyValue('--vegas-zoom-scale').trim()).toBe('5');
-		// 未被覆盖的变量仍取默认值
-		expect(computed.getPropertyValue('--vegas-swirl-degree').trim()).toBe('35deg');
 
 		wrapper.unmount();
+		userStyle.remove();
 	});
 
 	it('re-resolves the Ken Burns animation when the animation prop changes', async () => {

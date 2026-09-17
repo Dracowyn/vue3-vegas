@@ -3,7 +3,7 @@ import {
 	BASE_TRANSITION_NAMES,
 	TRANSITION_NAMES,
 	TRANSITION_PRESETS,
-} from '../src/composables/transitionPresets';
+} from '../src/effects/transitionPresets';
 
 describe('transitionPresets', () => {
 	it('covers the 13 base transitions from vegas.css', () => {
@@ -46,11 +46,11 @@ describe('transitionPresets', () => {
 		expect(TRANSITION_PRESETS.zoomIn.from).toEqual({ transform: 'scale(0)', opacity: '0' });
 		expect(TRANSITION_PRESETS.zoomIn.to).toEqual({ transform: 'scale(1)', opacity: '1' });
 		expect(TRANSITION_PRESETS.zoomIn2.out).toEqual({
-			transform: 'scale(var(--vegas-zoom-scale))',
+			transform: 'scale(var(--vegas-zoom-scale, 2))',
 			opacity: '0',
 		});
 		expect(TRANSITION_PRESETS.zoomOut.from).toEqual({
-			transform: 'scale(var(--vegas-zoom-scale))',
+			transform: 'scale(var(--vegas-zoom-scale, 2))',
 			opacity: '0',
 		});
 		expect(TRANSITION_PRESETS.zoomOut2.out).toEqual({ transform: 'scale(0)', opacity: '0' });
@@ -58,11 +58,12 @@ describe('transitionPresets', () => {
 
 	it('matches vegas.css values for swirlLeft', () => {
 		expect(TRANSITION_PRESETS.swirlLeft.from).toEqual({
-			transform: 'scale(var(--vegas-swirl-scale)) rotate(var(--vegas-swirl-degree))',
+			transform: 'scale(var(--vegas-swirl-scale, 2)) rotate(var(--vegas-swirl-degree, 35deg))',
 			opacity: '0',
 		});
 		expect(TRANSITION_PRESETS.swirlLeft2.out).toEqual({
-			transform: 'scale(var(--vegas-swirl-scale)) rotate(calc(-1 * var(--vegas-swirl-degree)))',
+			transform: 'scale(var(--vegas-swirl-scale, 2)) '
+				+ 'rotate(calc(-1 * var(--vegas-swirl-degree, 35deg)))',
 			opacity: '0',
 		});
 	});
@@ -73,5 +74,12 @@ describe('transitionPresets', () => {
 			to: { transform: 'scale(1.25)', opacity: '1' },
 			out: { transform: 'scale(1)', opacity: '0' },
 		});
+	});
+
+	it('gives every `var(--vegas-*)` reference in the presets its own fallback value', () => {
+		const serialized = JSON.stringify(TRANSITION_PRESETS);
+		// 不带回退值的写法：`var(--vegas-xxx)`，逗号回退写法不应命中
+		const bareVarUsages = serialized.match(/var\(--vegas-[a-z-]+\)/g);
+		expect(bareVarUsages).toBeNull();
 	});
 });

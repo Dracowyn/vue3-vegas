@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import { KEN_BURNS_KEYFRAMES_CSS, KEN_BURNS_NAMES } from '../src/composables/kenBurnsPresets';
+import { KEN_BURNS_KEYFRAMES_CSS, KEN_BURNS_NAMES } from '../src/effects/kenBurnsPresets';
 import { injectKeyframes, KEYFRAMES_STYLE_MARKER } from '../src/utils/injectKeyframes';
 
 describe('kenBurnsPresets', () => {
@@ -19,17 +19,23 @@ describe('kenBurnsPresets', () => {
 	});
 
 	it('scales from the kenburns scale variable down to 1', () => {
-		expect(KEN_BURNS_KEYFRAMES_CSS).toContain('scale(var(--vegas-kenburns-scale))');
+		expect(KEN_BURNS_KEYFRAMES_CSS).toContain('scale(var(--vegas-kenburns-scale, 1.5))');
 		expect(KEN_BURNS_KEYFRAMES_CSS).toContain('scale(1)');
 	});
 
 	it('pans kenburnsUp positively and kenburnsDown negatively on Y', () => {
 		expect(KEN_BURNS_KEYFRAMES_CSS).toContain(
-			'translate(0, var(--vegas-kenburns-translate))'
+			'translate(0, var(--vegas-kenburns-translate, 10%))'
 		);
 		expect(KEN_BURNS_KEYFRAMES_CSS).toContain(
-			'translate(0, calc(-1 * var(--vegas-kenburns-translate)))'
+			'translate(0, calc(-1 * var(--vegas-kenburns-translate, 10%)))'
 		);
+	});
+
+	it('gives every `var(--vegas-*)` reference in the keyframes its own fallback value', () => {
+		// 不带回退值的写法：`var(--vegas-xxx)`，逗号回退写法不应命中
+		const bareVarUsages = KEN_BURNS_KEYFRAMES_CSS.match(/var\(--vegas-[a-z-]+\)/g);
+		expect(bareVarUsages).toBeNull();
 	});
 });
 

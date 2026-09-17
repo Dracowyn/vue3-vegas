@@ -74,6 +74,27 @@ import { Vegas } from 'vue3-vegas'
 
 ---
 
+## Exported constants and types
+
+The package exports the names of all built-in transitions and animations as frozen arrays. Use them for backend whitelists, dropdown menus, or any validation that needs the authoritative list without reading the documentation.
+
+```ts
+import { TRANSITION_NAMES, KEN_BURNS_NAMES, isVegasTransitionName, isVegasAnimationName } from 'vue3-vegas'
+import type { VegasTransitionName, VegasAnimationName, VegasEffectName } from 'vue3-vegas'
+
+// TRANSITION_NAMES = ['fade', 'fade2', 'blur', ..., 'zoomInOut'] (27 entries)
+// KEN_BURNS_NAMES = ['kenburns', 'kenburnsUp', ..., 'kenburnsDownRight'] (9 entries)
+
+isVegasTransitionName(userInput)  // userInput: string, narrows to VegasTransitionName
+isVegasAnimationName(userInput)   // narrows to VegasAnimationName
+```
+
+`TRANSITION_NAMES` and `KEN_BURNS_NAMES` are read-only arrays of string literals — pass them directly as `transition` / `animation` to use as the random pool. `isVegasTransitionName` / `isVegasAnimationName` are the recommended way to check an arbitrary `string` against them: they return a boolean and narrow the type. Calling `.includes()` on the lists with a plain `string` is a type error, because their elements are string literals.
+
+`VegasEffectName<Name>` is the input type these props actually accept: a built-in name, `'random'`, or any custom string. The `transition`, `firstTransition`, and `animation` props accept the built-in names (with editor autocomplete), `'random'`, or any custom string for names registered via `transitionRegister` / `animationRegister`.
+
+---
+
 ## Props
 
 ### Core
@@ -209,7 +230,7 @@ and its `animationDuration` is set; you define the `@keyframes` in your own CSS:
 
 ### Tuning effect intensity
 
-The component exposes 6 CSS variables on its root container. Override them to adjust how strong the effects are:
+The component uses 6 CSS variables to control effect strength. Each has a fallback default value inside `var(--vegas-xxx, default)`, so the defaults are available whether or not a stylesheet is injected—they work without JavaScript style injection and in strict CSP environments. Override them at the component root, any ancestor, or in a global stylesheet:
 
 | Variable | Default | Affects |
 |----------|---------|---------|
@@ -220,7 +241,9 @@ The component exposes 6 CSS variables on its root container. Override them to ad
 | `--vegas-swirl-scale` | `2` | Scale factor of the `swirl` transitions |
 | `--vegas-zoom-scale` | `2` | Starting scale of `zoomOut`, and the scale of the outgoing image in `zoomIn2` |
 
-These defaults are injected with zero-specificity rules, so any selector overrides them. For example, add a class to `<Vegas>`:
+Note: `getComputedStyle(root).getPropertyValue('--vegas-zoom-scale')` returns an empty string unless you have set the variable yourself. The fallback values only apply where the component uses them; they are not defined on the element.
+
+For example, add a class to `<Vegas>`:
 
 ```vue
 <template>
@@ -239,8 +262,8 @@ These defaults are injected with zero-specificity rules, so any selector overrid
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `defaultBackground` | `string` | — | URL of a background image shown before the slides start |
-| `defaultBackgroundDuration` | `number` | `3000` | How long the default background stays (ms) before it cross-fades into the first slide |
+| `defaultBackground` | `string` | — | URL of a background image shown before the slides start; remains until the first slide's image loads (if any) |
+| `defaultBackgroundDuration` | `number` | `3000` | Minimum duration the default background stays (ms) before the first slide; if the first slide's image is still loading, waits until it completes |
 
 ### Layout
 
@@ -274,14 +297,22 @@ These defaults are injected with zero-specificity rules, so any selector overrid
 > warm the HTTP cache in the background through detached `<video preload="auto">` elements, so they don't block the
 > first frame, and unfinished downloads are aborted when the component unmounts. The original Vegas.js behaves the same way.
 
+### Image loading and timing
+
+When switching to an image slide, the component waits for the image to load (or fail to load) before starting the transition. During this wait, the previous slide remains visible. If the image is already cached by the browser, the switch is synchronous — the same behavior as before. Video slides switch immediately without waiting. The first slide uses the same logic: if it is an image slide, the component waits for the image before starting the first-slide entrance transition.
+
+When `defaultBackground` is set, it remains on screen until either `defaultBackgroundDuration` elapses *or* the first slide's image is ready, whichever is later. This wait for the first image happens in parallel with the preload phase and default background duration — the times do not stack.
+
+Changing the `slides` array (adding or removing slides) preserves the current playback position when possible; the component continues showing the same slide instead of jumping back to the initial slide. If the current index falls out of range due to removals, it auto-clamps to the last slide (this adjustment does not fire `onWalk`). When `shuffle` is enabled, the order is re-shuffled after adding/removing slides, but the current slide is never immediately repeated.
+
 ### Callbacks
 
 | Prop | Type | Description |
 |------|------|-------------|
 | `onInit` | `() => void` | Fires once when the component mounts |
-| `onPlay` | `(index: number, slide: SlideProps) => void` | Fires when playback starts or resumes |
-| `onPause` | `(index: number, slide: SlideProps) => void` | Fires when playback pauses |
-| `onWalk` | `(index: number, slide: SlideProps) => void` | Fires on every slide switch |
+| `onPlay` | `(index: number, slide: SlideProps) => void` | Fires when playback starts or resumes (including when the page becomes visible again after being hidden) |
+| `onPause` | `(index: number, slide: SlideProps) => void` | Fires when playback pauses (including when the page becomes hidden) |
+| `onWalk` | `(index: number, slide: SlideProps) => void` | Fires when a slide switch completes |
 | `onEnd` | `(index: number, slide: SlideProps) => void` | Fires after the last slide has played when `loop: false` |
 
 All callbacks except `onInit` receive the index and config of the current slide (for `onWalk`, the target slide).
@@ -360,20 +391,20 @@ const vegas = ref<VegasHandle | null>(null)
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `play()` | `void` | Starts / resumes autoplay |
+| `play()` | `void` | Starts or resumes autoplay |
 | `pause()` | `void` | Pauses autoplay |
 | `toggle()` | `void` | Toggles between playing and paused |
-| `playing()` | `boolean` | Whether autoplay is running; changes at the same moments `onPlay` / `onPause` fire |
-| `next()` | `boolean` | Switches to the next slide |
-| `previous()` | `boolean` | Switches to the previous slide |
-| `goTo(index)` | `boolean` | Jumps to the given index (`jump` in the original Vegas) |
+| `playing()` | `boolean` | Whether autoplay is running |
+| `next()` | `boolean` | Requests the next slide |
+| `previous()` | `boolean` | Requests the previous slide |
+| `goTo(index)` | `boolean` | Requests a jump to the given index (`jump` in the original Vegas) |
 | `current()` | `number` | Index of the current slide in `slides` |
 
-`next` / `previous` / `goTo` return whether a switch actually started. They do nothing and return `false` when the index
-is out of range, the target is already the current slide, or the previous transition hasn't finished yet. All three
-happen when navigation buttons are clicked in quick succession.
+`next()`, `previous()`, and `goTo()` return `false` when the index is out of range, the target is already the current slide, or a transition animation is still running. They return `true` to indicate the request was accepted. If the target is an image slide not yet cached, the switch is deferred until the image loads (or fails). During this deferred wait, a new request from `next()`, `previous()`, or `goTo()` replaces the previous one.
 
-`current()` always returns the real index in `slides`, even when `shuffle` changes the playback order.
+`current()` returns the real index in `slides`, even when `shuffle` changes the playback order. It updates only when a switch actually completes (after any image-loading wait).
+
+`playing()` changes at the same moments `onPlay` and `onPause` fire.
 
 ### Dot navigation
 
@@ -419,8 +450,7 @@ const active = ref(0)
 > Placing the indicator after `<Vegas>` is enough. The component's root element has `isolation: isolate`, so its internal
 > layers (including the overlay and the progress bar) don't leak into the host page, and siblings stack on top of it by default.
 >
-> `onWalk` fires on switches, not on the initial render, so the initial value of `active` must match the
-> `slide` prop (both default to `0`).
+> `onWalk` fires when a slide switch actually completes (including after any image-loading wait), not on the initial render, so the initial value of `active` must match the `slide` prop (both default to `0`).
 
 ---
 
@@ -595,3 +625,15 @@ Transitions now follow the semantics of the original Vegas.js exactly, which bri
 - **Video `muted` / `loop` now default to `true`**, matching the original Vegas.js. In 0.2.x, leaving them out meant a video was
   neither muted (so browser autoplay policies often blocked it) nor looping, and switched to the next slide once it ended. Now videos
   are muted and loop by default, and switch only when `delay` runs out. To keep "switch when it ends", set `loop: false` on that slide, or (since 0.5.0) set `delay: 'video'`.
+
+---
+
+## Behavior changes after 0.5.0 (unreleased)
+
+- **CSS variables now use fallback values instead of injected styles.** Reading one of these variables with `getComputedStyle()` on the component root now returns an empty string unless you have set it yourself. Overriding the variables on the root or any ancestor works as before.
+
+- **`next()`, `previous()`, and `goTo()` now return `true` to mean "request accepted" instead of "switch started".** If the target is an image slide not yet cached, the switch is deferred until the image loads (or fails). `current()` and `onWalk` update only when the switch actually completes.
+
+- **Changing `transitionDuration`, `firstTransitionDuration`, `defaultBackgroundDuration`, `preload`, or `defaultBackground` after playback starts no longer restarts the startup sequence.** Changes only affect subsequent slides. During the startup phase itself, changes still trigger a restart.
+
+- **Adding or removing slides now preserves playback position.** The component continues showing the same slide instead of jumping back to the initial position. If the current index falls out of range, it clamps to the last slide without firing `onWalk`. Modifying `slide` or `shuffle` still triggers full re-initialization.

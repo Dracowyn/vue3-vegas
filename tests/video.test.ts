@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils';
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import Vegas from '../src/Vegas.vue';
-import type { SlideProps } from '../src/types';
+import type { SlideProps, VegasHandle } from '../src/types';
 import { capturePreloadedVideos, flushEffects } from './helpers';
 
 const videoSlide: SlideProps = {
@@ -112,5 +112,64 @@ describe('video 数组简写（对齐原版 Vegas.js）', () => {
 		expect(capture.preloaded()).toEqual([['/clip.mp4', '/clip.webm']]);
 
 		capture.restore();
+	});
+});
+
+const handleOf = (wrapper: ReturnType<typeof mount>) => wrapper.vm as unknown as VegasHandle;
+
+// video.loop:false 本身就该在播完时自动切走，不依赖 slide.delay: 'video'（那是「播完再切」
+// 的另一条独立开关，见 useVideoAdvance 里 advanceOnEnded / videoLoop 的组合判断）。
+// 这一组在重构前也存在，但一直没有端到端用例覆盖，顺手补上。
+describe('video.loop:false 时视频播完自动切走（不依赖 delay: "video"）', () => {
+	afterEach(() => {
+		if (vi.isFakeTimers()) {
+			vi.runOnlyPendingTimers();
+			vi.useRealTimers();
+		}
+	});
+
+	const mountLoopSlide = (loop: boolean) => {
+		vi.useFakeTimers();
+		return mount(Vegas, {
+			props: {
+				slides: [
+					{ src: '/a.jpg', video: { src: ['/clip.mp4'], loop } },
+					{ src: '/b.jpg' },
+				] as SlideProps[],
+				autoplay: true,
+				delay: 100000,
+				firstTransitionDuration: 0,
+			},
+		});
+	};
+
+	it('loop:false 的视频播完后立即切到下一张', async () => {
+		const wrapper = mountLoopSlide(false);
+		await flushEffects();
+
+		wrapper.find('video').element.dispatchEvent(new Event('ended'));
+		await flushEffects();
+
+		expect(handleOf(wrapper).current()).toBe(1);
+	});
+
+	it('默认 loop 的视频播完不会自动切走', async () => {
+		const wrapper = mountLoopSlide(true);
+		await flushEffects();
+
+		wrapper.find('video').element.dispatchEvent(new Event('ended'));
+		await flushEffects();
+
+		expect(handleOf(wrapper).current()).toBe(0);
+	});
+
+	it('loop:false 但非「播完再切」的幻灯片，视频放不出来不会自动切走（video-failed 只认 advanceOnEnded）', async () => {
+		const wrapper = mountLoopSlide(false);
+		await flushEffects();
+
+		wrapper.find('source').element.dispatchEvent(new Event('error'));
+		await flushEffects();
+
+		expect(handleOf(wrapper).current()).toBe(0);
 	});
 });

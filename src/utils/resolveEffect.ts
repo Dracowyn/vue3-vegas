@@ -1,9 +1,11 @@
+import { isStringArray } from './isStringArray';
+
 /**
  * 从候选池里随机取名。原版语义：register 是把自定义名**并入**内置池，而不是限定它——
  * 池为空/未提供时就是纯内置池；有内容时是「内置池 + register」的合集。
  */
 export const pickRandomName = (
-	pool: string[] | undefined,
+	pool: readonly string[] | undefined,
 	fallbackPool: readonly string[]
 ): string => {
 	const candidates = pool && pool.length > 0 ? fallbackPool.concat(pool) : fallbackPool;
@@ -19,15 +21,15 @@ export const pickRandomName = (
  * 并通过 onUnknown 上报（调用方在 debug 打开时告警）。
  */
 export const resolveEffectName = (
-	requested: string | string[] | null | undefined,
-	register: string[] | undefined,
+	requested: string | readonly string[] | null | undefined,
+	register: readonly string[] | undefined,
 	allNames: readonly string[],
 	fallback: string | null,
 	onUnknown?: (name: string) => void
 ): string | null => {
-	if (!requested || (Array.isArray(requested) && requested.length === 0)) return fallback;
+	if (!requested || (isStringArray(requested) && requested.length === 0)) return fallback;
 
-	const name = Array.isArray(requested)
+	const name = isStringArray(requested)
 		? pickRandomName(undefined, requested)
 		: requested === 'random'
 			? pickRandomName(register, allNames)

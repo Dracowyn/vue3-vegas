@@ -80,6 +80,144 @@ describe('运行时 prop 变化', () => {
 
 		expect(isSlideVisible(wrapper, '/lc-b.jpg')).toBe(true);
 	});
+
+	it('playing 阶段改 transitionDuration 不重启生命周期', async () => {
+		vi.useFakeTimers();
+		const onPlay = vi.fn();
+		const wrapper = mount(Vegas, {
+			props: {
+				slides,
+				autoplay: true,
+				delay: 60000,
+				transitionDuration: 100,
+				// 故意不设 firstTransitionDuration：effectiveFirstTransitionDuration
+				// 回退到 transitionDuration，正是原 bug 触发的路径
+				defaultBackground: '/lc-bg.jpg',
+				defaultBackgroundDuration: 1000,
+				onPlay,
+			},
+		});
+		await flushEffects();
+		// 默认背景 1000ms，再走首帧过渡 100ms
+		await advanceTimers(1000);
+		await advanceTimers(100);
+
+		const handle = handleOf(wrapper);
+		expect(handle.playing()).toBe(true);
+		expect(onPlay).toHaveBeenCalledTimes(1);
+
+		handle.next();
+		await advanceTimers(100);
+		await flushEffects();
+		expect(isSlideVisible(wrapper, '/lc-b.jpg')).toBe(true);
+
+		await wrapper.setProps({ transitionDuration: 200 });
+		await flushEffects();
+
+		// 幻灯片保持挂载、下标不变、默认背景不重新出现、onPlay 不再多触发一次
+		expect(isSlideVisible(wrapper, '/lc-b.jpg')).toBe(true);
+		expect(isDefaultBackgroundVisible(wrapper, '/lc-bg.jpg')).toBe(false);
+		expect(onPlay).toHaveBeenCalledTimes(1);
+		expect(handle.playing()).toBe(true);
+	});
+
+	it('playing 阶段改 defaultBackgroundDuration 不重启生命周期', async () => {
+		vi.useFakeTimers();
+		const onPlay = vi.fn();
+		const wrapper = mount(Vegas, {
+			props: {
+				slides,
+				autoplay: true,
+				delay: 60000,
+				transitionDuration: 100,
+				firstTransitionDuration: 0,
+				defaultBackground: '/lc-bg.jpg',
+				defaultBackgroundDuration: 1000,
+				onPlay,
+			},
+		});
+		await flushEffects();
+		await advanceTimers(1000);
+
+		const handle = handleOf(wrapper);
+		expect(handle.playing()).toBe(true);
+		expect(onPlay).toHaveBeenCalledTimes(1);
+
+		await wrapper.setProps({ defaultBackgroundDuration: 5000 });
+		await flushEffects();
+
+		expect(isSlideVisible(wrapper, '/lc-a.jpg')).toBe(true);
+		expect(isDefaultBackgroundVisible(wrapper, '/lc-bg.jpg')).toBe(false);
+		expect(onPlay).toHaveBeenCalledTimes(1);
+		expect(handle.playing()).toBe(true);
+	});
+
+	it('paused 阶段改 transitionDuration 后仍保持 paused', async () => {
+		vi.useFakeTimers();
+		const onPause = vi.fn();
+		const wrapper = mount(Vegas, {
+			props: {
+				slides,
+				autoplay: false,
+				delay: 60000,
+				transitionDuration: 100,
+				// 故意不设 firstTransitionDuration，理由同上
+				defaultBackground: '/lc-bg.jpg',
+				defaultBackgroundDuration: 1000,
+				onPause,
+			},
+		});
+		await flushEffects();
+		// 默认背景 1000ms，再走首帧过渡 100ms
+		await advanceTimers(1000);
+		await advanceTimers(100);
+
+		const handle = handleOf(wrapper);
+		expect(handle.playing()).toBe(false);
+		expect(isSlideVisible(wrapper, '/lc-a.jpg')).toBe(true);
+
+		await wrapper.setProps({ transitionDuration: 200 });
+		await flushEffects();
+
+		expect(handle.playing()).toBe(false);
+		expect(isSlideVisible(wrapper, '/lc-a.jpg')).toBe(true);
+		expect(isDefaultBackgroundVisible(wrapper, '/lc-bg.jpg')).toBe(false);
+		expect(onPause).not.toHaveBeenCalled();
+	});
+
+	it('showingDefaultBackground 阶段改 defaultBackgroundDuration 仍按新时长重跑', async () => {
+		vi.useFakeTimers();
+		const wrapper = mount(Vegas, {
+			props: {
+				slides,
+				autoplay: true,
+				delay: 60000,
+				transitionDuration: 100,
+				firstTransitionDuration: 0,
+				defaultBackground: '/lc-bg.jpg',
+				defaultBackgroundDuration: 1000,
+			},
+		});
+		await flushEffects();
+
+		// 仍处于默认背景阶段（尚未到 1000ms）
+		expect(isDefaultBackgroundVisible(wrapper, '/lc-bg.jpg')).toBe(true);
+
+		await wrapper.setProps({ defaultBackgroundDuration: 5000 });
+		await flushEffects();
+
+		// 旧时长走完也不该结束默认背景阶段——已经按新时长重跑
+		await advanceTimers(1000);
+		await flushEffects();
+		expect(isDefaultBackgroundVisible(wrapper, '/lc-bg.jpg')).toBe(true);
+
+		// 新时长走完才结束
+		await advanceTimers(4000);
+		await flushEffects();
+		const handle = handleOf(wrapper);
+		expect(handle.playing()).toBe(true);
+		expect(isSlideVisible(wrapper, '/lc-a.jpg')).toBe(true);
+	});
 });
 
 describe('首帧过渡时长默认值', () => {

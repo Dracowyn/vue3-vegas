@@ -8,18 +8,20 @@ import VegasTimer from './components/VegasTimer.vue';
 import VegasSlideRenderer from './components/VegasSlideRenderer.vue';
 import { useLogger } from './composables/useLogger';
 import { usePreload } from './composables/usePreload';
-import { useAnimationVariants } from './composables/useAnimationVariants';
+import { getTransitionHandlers } from './effects/transitionHandlers';
 import { useVegasState } from './composables/useVegasState';
 import { useVegasLifecycle } from './composables/useVegasLifecycle';
 import { useAutoplay } from './composables/useAutoplay';
+import { useVideoAdvance } from './composables/useVideoAdvance';
 import { useVisibilityChange } from './composables/useVisibilityChange';
-import { injectKeyframes, injectRootStyles } from './utils/injectKeyframes';
+import { injectKeyframes } from './utils/injectKeyframes';
 import { fadeOutSlideVideo } from './utils/videoSound';
 import { resolveSlideVideo } from './utils/videoSource';
-import { VEGAS_ROOT_CLASS, VEGAS_ROOT_VARIABLES_CSS } from './constants/rootStyles';
-import { KEN_BURNS_KEYFRAMES_CSS, KEN_BURNS_NAMES } from './composables/kenBurnsPresets';
-import { TRANSITION_NAMES } from './composables/transitionPresets';
+import { VEGAS_ROOT_CLASS } from './constants/rootStyles';
+import { KEN_BURNS_KEYFRAMES_CSS, KEN_BURNS_NAMES } from './effects/kenBurnsPresets';
+import { TRANSITION_NAMES } from './effects/transitionPresets';
 import { resolveEffectDuration, resolveEffectName } from './utils/resolveEffect';
+import { isStringArray } from './utils/isStringArray';
 
 const props = withDefaults(defineProps<VegasProps>(), {
 	slide: 0,
@@ -62,6 +64,19 @@ const props = withDefaults(defineProps<VegasProps>(), {
 
 const isTransitioning = ref(false);
 
+// 锁需保持到本次切换的进入动画结束。进入与离开共用目标幻灯片解析出的同一个
+// 时长（见 getSlideTransitionDuration），锁保持这么久即可。
+const currentTransitionDuration = ref(props.transitionDuration);
+
+// 真正提交切换（而非仅仅被接受/进入等待）的那一刻才上过渡锁——图片幻灯片可能要等
+// 目标图片 load/error 后才提交，等待期间不能占着锁，否则慢网下用户点什么都没反应。
+// getSlideTransitionDuration 定义在文件下方，但这里只是把函数引用存进闭包，
+// 真正调用发生在挂载完成之后（导航时），届时它早已赋值完毕。
+const handleSlideCommit = (index: number) => {
+	currentTransitionDuration.value = getSlideTransitionDuration(index);
+	isTransitioning.value = true;
+};
+
 const effectivePreloadImageBatch = computed(() => props.preloadImageBatch ?? props.preLoadImageBatch ?? 3);
 
 // `preload` 是主开关,等价于同时开启图片与视频预加载(与原版 Vegas.js 语义一致);
@@ -75,17 +90,15 @@ const effectiveFirstTransitionDuration = computed(() => props.firstTransitionDur
 
 const { log, logWarn, logError } = useLogger(() => props.debug);
 
-const { loading, loadProgress, preloadResources } = usePreload(
-	() => props.slides,
-	() => effectivePreloadImage.value,
-	() => effectivePreloadVideo.value,
-	() => effectivePreloadImageBatch.value,
-	() => log.value,
-	() => logWarn.value,
-	() => logError.value
-);
-
-const { getHandlers } = useAnimationVariants();
+const { loading, loadProgress, preloadResources } = usePreload({
+	getSlides: () => props.slides,
+	getPreloadImage: () => effectivePreloadImage.value,
+	getPreloadVideo: () => effectivePreloadVideo.value,
+	getPreloadImageBatch: () => effectivePreloadImageBatch.value,
+	log: () => log.value,
+	logWarn: () => logWarn.value,
+	logError: () => logError.value,
+});
 
 const {
 	phase,
@@ -96,54 +109,44 @@ const {
 	isDefaultBackgroundLeaving,
 	play: startPlayback,
 	pause: stopPlayback,
-} = useVegasLifecycle(
-	() => shouldPreload.value,
-	() => props.autoplay,
-	() => Boolean(props.defaultBackground),
-	() => props.defaultBackgroundDuration,
-	() => effectiveFirstTransitionDuration.value,
+} = useVegasLifecycle({
+	getPreload: () => shouldPreload.value,
+	getAutoplay: () => props.autoplay,
+	getHasDefaultBackground: () => Boolean(props.defaultBackground),
+	getDefaultBackgroundDuration: () => props.defaultBackgroundDuration,
+	getFirstTransitionDuration: () => effectiveFirstTransitionDuration.value,
+	// currentSlide 声明在下方（由 useVegasState 解析，可能因 shuffle / 越界钳位
+	// 不同于 props.slide）；这里只是把引用存进闭包，真正调用发生在挂载之后
+	// （runLifecycle 只在 onMounted 里跑），届时 currentSlide 早已赋值完毕。
+	getCurrentSlideIndex: () => currentSlide.value,
+	getSlides: () => props.slides,
 	preloadResources,
-	() => log.value
-);
+	log: () => log.value,
+});
 
-const vegasState = useVegasState(
-	() => props.slide,
-	() => props.slides,
-	() => props.loop,
-	() => props.shuffle,
-	() => isTransitioning.value,
-	() => log.value,
+const vegasState = useVegasState({
+	getInitialSlide: () => props.slide,
+	getSlides: () => props.slides,
+	getLoop: () => props.loop,
+	getShuffle: () => props.shuffle,
+	getIsTransitioning: () => isTransitioning.value,
+	log: () => log.value,
 	// 包一层而不是直接传 props.onWalk：props 的属性值在 setup 期只读一次，
 	// 直接传会把回调固定在挂载那一刻的引用上，之后换回调不再生效。
-	(index, slide) => props.onWalk?.(index, slide),
+	onWalk: (index, slide) => props.onWalk?.(index, slide),
 	stopPlayback,
-	(index, slide) => props.onEnd?.(index, slide)
-);
+	onEnd: (index, slide) => props.onEnd?.(index, slide),
+	onCommit: handleSlideCommit,
+});
 
 const {
 	currentSlide,
 	currentOrderIndex,
 	visibleSlides,
-	next: stateNext,
-	previous: statePrevious,
-	goTo: stateGoTo,
+	next,
+	previous,
+	goTo,
 } = vegasState;
-
-// 锁需保持到本次切换的进入动画结束。进入与离开共用目标幻灯片解析出的同一个
-// 时长（见 getSlideTransitionDuration），锁保持这么久即可。
-const currentTransitionDuration = ref(props.transitionDuration);
-
-const startTransition = (transitionStarted: boolean) => {
-	if (transitionStarted) {
-		currentTransitionDuration.value = getSlideTransitionDuration(currentSlide.value);
-		isTransitioning.value = true;
-	}
-	return transitionStarted;
-};
-
-const next = () => startTransition(stateNext());
-const previous = () => startTransition(statePrevious());
-const goTo = (index: number) => startTransition(stateGoTo(index));
 
 /** 当前幻灯片在 `slides` 中的下标（原版 Vegas 的 `current`） */
 const current = () => currentSlide.value;
@@ -178,6 +181,10 @@ const playsUntilEnded = (idx: number) => {
 // 播完再切需要有下一张可切；只有一张时视频照 video.loop 播，不强制只播一遍
 const getAdvanceOnEnded = (idx: number) => playsUntilEnded(idx) && props.slides.length > 1;
 
+// 该张视频配置是否 loop（必须经 resolveSlideVideo 归一化，非视频幻灯片按默认值 true 处理，
+// 反正 useVideoAdvance 只会在 getAdvanceOnEnded 已经为 false 时才去看它，不影响图片幻灯片）
+const isSlideVideoLoop = (idx: number) => resolveSlideVideo(props.slides[idx]?.video)?.loop ?? true;
+
 // 该张幻灯片的数值停留时长（不含 'video' 兜底上限），也是 animationDuration: 'auto' 的取值来源。
 // 播完再切的视频时长事先不知道，Ken Burns 按全局 delay 走完后停在结束帧（forwards）
 const getSlideBaseDelay = (idx: number) => {
@@ -188,22 +195,33 @@ const getSlideBaseDelay = (idx: number) => {
 // 自动播放定时器用的停留时长：播完再切的视频以 videoMaxDelay 兜底，正常播完由 ended 提前切走
 const getSlideDelay = (idx: number) => (playsUntilEnded(idx) ? props.videoMaxDelay : getSlideBaseDelay(idx));
 
-useAutoplay(
-	isPlaying,
-	() => isTransitioning.value,
-	() => currentSlide.value,
-	() => props.slides.length,
-	() => getSlideDelay(currentSlide.value),
+useAutoplay({
+	getIsPlaying: isPlaying,
+	getIsTransitioning: () => isTransitioning.value,
+	getCurrentSlide: () => currentSlide.value,
+	getSlideCount: () => props.slides.length,
+	getCurrentDelay: () => getSlideDelay(currentSlide.value),
 	next,
-	() => log.value
-);
+	log: () => log.value,
+});
 
-useVisibilityChange(
-	() => isPlaying() || (phase.value === 'firstSlide' && props.autoplay),
+// 视频「播完 / 放不出来 → 切走」的决策：VegasSlideRenderer 只上报 video-ended / video-failed
+// 事实事件，这里按当前幻灯片下标与播放阶段统一把关（见 useVideoAdvance 内的注释）
+const { handleVideoEnded, handleVideoFailed } = useVideoAdvance({
+	getCurrentSlide: () => currentSlide.value,
+	getPhase: () => phase.value,
+	getAdvanceOnEnded,
+	getVideoLoop: isSlideVideoLoop,
+	next,
+	log: () => log.value,
+});
+
+useVisibilityChange({
+	getShouldResume: () => isPlaying() || (phase.value === 'firstSlide' && props.autoplay),
 	play,
 	pause,
-	() => log.value
-);
+	log: () => log.value,
+});
 
 // Compute slide transition info (stored as data attrs for TransitionGroup hooks)
 const getSlideTransitionName = (idx: number) => {
@@ -263,9 +281,9 @@ const currentAnimationName = ref<string | null>(null);
 
 // requested 可能是字符串数组（animation 的数组形式），拼进指纹前需要一个稳定的
 // 序列化方式，不能依赖模板字符串对数组的隐式 toString
-const serializeRequestedEffect = (requested: string | string[] | null | undefined): string => {
+const serializeRequestedEffect = (requested: string | readonly string[] | null | undefined): string => {
 	if (requested == null) return '';
-	return Array.isArray(requested) ? requested.join(',') : requested;
+	return isStringArray(requested) ? requested.join(',') : requested;
 };
 
 // 动画名的「解析依据」指纹：幻灯片下标 + 请求的动画名 + random 候选池。
@@ -306,7 +324,7 @@ const handleSlideEnter = (el: Element, done: () => void) => {
 	const htmlEl = el as HTMLElement;
 	const transName = htmlEl.dataset.transitionName || 'fade';
 	const duration = Number(htmlEl.dataset.transitionDuration) || props.transitionDuration;
-	getHandlers(transName, duration).onEnter(el, done);
+	getTransitionHandlers(transName, duration).onEnter(el, done);
 };
 
 const handleSlideLeave = (el: Element, done: () => void) => {
@@ -315,7 +333,7 @@ const handleSlideLeave = (el: Element, done: () => void) => {
 	fadeOutSlideVideo(el, currentTransitionDuration.value);
 
 	// 用目标幻灯片的过渡名与时长，而不是离场元素上残留的上一张的名字/固定基础时长
-	getHandlers(currentTransitionName.value, currentTransitionDuration.value).onLeave(el, done);
+	getTransitionHandlers(currentTransitionName.value, currentTransitionDuration.value).onLeave(el, done);
 };
 
 // Track phase changes for onPlay/onPause callbacks
@@ -361,11 +379,9 @@ watch(() => props.autoplay, auto => {
 
 onMounted(() => {
 	log.value('Vegas组件开始初始化');
-	// 两份样式都依赖 document，只能在挂载后注入（SSR / Nuxt 水合安全）。
-	// 幻灯片要到 phase 变成 firstSlide 才渲染，而 phase 的推进发生在
-	// useVegasLifecycle 的 onMounted 里，且 DOM 更新会排到本轮所有 onMounted
-	// 之后的微任务，因此消费这些变量的元素一定晚于注入出现。
-	injectRootStyles(VEGAS_ROOT_VARIABLES_CSS);
+	// keyframes 依赖 document，只能在挂载后注入（SSR / Nuxt 水合安全）。
+	// 效果调节变量的默认值不再靠注入样式表提供，而是写在各处 var(--x, 默认值)
+	// 的回退里（见 constants/cssVariables.ts），因此不受注入时机影响。
 	injectKeyframes(KEN_BURNS_KEYFRAMES_CSS);
 	props.onInit?.();
 });
@@ -435,13 +451,12 @@ defineExpose<VegasHandle>({
 				:animation-duration="getSlideAnimationDuration(idx)"
 				:transition-duration="getSlideTransitionDuration(idx)"
 				:is-media-playing="phase !== 'paused'"
-				:can-advance="phase === 'playing'"
 				:advance-on-ended="getAdvanceOnEnded(idx)"
-				:get-current-slide="current"
-				:next="next"
 				:log="log"
 				:log-warn="logWarn"
 				:log-error="logError"
+				@video-ended="handleVideoEnded"
+				@video-failed="handleVideoFailed"
 			/>
 		</TransitionGroup>
 

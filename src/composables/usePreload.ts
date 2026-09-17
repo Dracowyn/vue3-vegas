@@ -2,18 +2,29 @@ import { ref, onUnmounted } from 'vue';
 import type { SlideProps, Logger } from '../types';
 import { resolveSlideVideo } from '../utils/videoSource';
 
-export const usePreload = (
-	getSlides: () => SlideProps[],
-	getPreloadImage: () => boolean,
-	getPreloadVideo: () => boolean,
-	getPreloadImageBatch: () => number,
-	log: () => Logger,
-	logWarn: () => Logger,
-	logError: () => Logger
-) => {
+export interface UsePreloadOptions {
+	getSlides: () => SlideProps[];
+	getPreloadImage: () => boolean;
+	getPreloadVideo: () => boolean;
+	getPreloadImageBatch: () => number;
+	log: () => Logger;
+	logWarn: () => Logger;
+	logError: () => Logger;
+}
+
+export const usePreload = (options: UsePreloadOptions) => {
+	const {
+		getSlides,
+		getPreloadImage,
+		getPreloadVideo,
+		getPreloadImageBatch,
+		log,
+		logWarn,
+		logError,
+	} = options;
+
 	const loading = ref(false);
 	const loadProgress = ref(0);
-	const loadedImages = ref<Record<string, boolean>>({});
 	// 预加载用的游离 <video>，必须一直持有引用：丢掉引用就可能被 GC 掉，下载随之中断
 	const preloadVideos: HTMLVideoElement[] = [];
 
@@ -48,10 +59,7 @@ export const usePreload = (
 				const promises = batch.map(slide => {
 					return new Promise<void>((resolve) => {
 						const img = new Image();
-						img.onload = () => {
-							loadedImages.value = { ...loadedImages.value, [slide.src]: true };
-							resolve();
-						};
+						img.onload = () => resolve();
 						img.onerror = () => {
 							logWarn()(`图片加载失败: ${slide.src}`);
 							resolve();
@@ -134,7 +142,6 @@ export const usePreload = (
 	return {
 		loading,
 		loadProgress,
-		loadedImages,
 		preloadResources,
 	};
 };

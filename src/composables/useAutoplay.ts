@@ -1,16 +1,28 @@
 import { watch, onUnmounted } from 'vue';
 import type { Logger } from '../types';
 
-export const useAutoplay = (
-	getIsPlaying: () => boolean,
-	getIsTransitioning: () => boolean,
-	getCurrentSlide: () => number,
-	getSlideCount: () => number,
+export interface UseAutoplayOptions {
+	getIsPlaying: () => boolean;
+	getIsTransitioning: () => boolean;
+	getCurrentSlide: () => number;
+	getSlideCount: () => number;
 	/** 当前幻灯片的有效停留时长（已解析好 slide.delay、全局 delay 与 'video' 兜底上限） */
-	getCurrentDelay: () => number,
-	next: () => void,
-	log: () => Logger
-) => {
+	getCurrentDelay: () => number;
+	next: () => void;
+	log: () => Logger;
+}
+
+export const useAutoplay = (options: UseAutoplayOptions) => {
+	const {
+		getIsPlaying,
+		getIsTransitioning,
+		getCurrentSlide,
+		getSlideCount,
+		getCurrentDelay,
+		next,
+		log,
+	} = options;
+
 	let timer: number | null = null;
 
 	const clearAutoplayTimer = () => {

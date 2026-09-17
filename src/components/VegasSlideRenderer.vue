@@ -5,8 +5,8 @@ import type { SlideProps, Logger } from '../types';
 import {
 	CUSTOM_ANIMATION_CLASS_PREFIX,
 	KEN_BURNS_ANIMATION_PREFIX,
-	KEN_BURNS_NAMES,
-} from '../composables/kenBurnsPresets';
+	isVegasAnimationName,
+} from '../effects/kenBurnsPresets';
 import { resolveSlideVideo } from '../utils/videoSource';
 import { fadeInVideoSound, type CancelFade } from '../utils/videoSound';
 
@@ -22,19 +22,21 @@ const props = defineProps<{
 	/** 本次过渡的时长（ms），视频音量淡入用它对齐画面的过渡节奏 */
 	transitionDuration: number;
 	isMediaPlaying: boolean;
-	canAdvance: boolean;
-	/** 视频完整播一遍后切到下一张（slide.delay 为 'video' 且有下一张可切） */
+	/** 视频完整播一遍后切到下一张（slide.delay 为 'video' 且有下一张可切）。仅用于本地决定要不要关掉 loop */
 	advanceOnEnded: boolean;
-	/**
-	 * 读取当前幻灯片下标。切换时上一张还要挂载一个过渡时长做离场动画，离场中的视频播完或出错
-	 * 不能再调 next()，否则会连跳一张。必须传函数而不是布尔 prop：离场节点已经移出
-	 * TransitionGroup 的列表，Vue 不会再给它更新 props，布尔值会一直停在「是当前」
-	 */
-	getCurrentSlide: () => number;
-	next: () => void;
 	log: Logger;
 	logWarn: Logger;
 	logError: Logger;
+}>();
+
+/**
+ * 只上报事实，是否/何时真的切到下一张由编排层（useVideoAdvance，Vegas.vue 接线）决定。
+ * 之所以不在这里直接判断，是因为切走后上一张还会挂载一个过渡时长做离场动画——离场节点
+ * 已经移出 TransitionGroup 的列表，收不到 props 更新，没法在这里区分「我是不是当前幻灯片」。
+ */
+const emit = defineEmits<{
+	(e: 'video-ended', index: number): void;
+	(e: 'video-failed', index: number): void;
 }>();
 
 const videoRef = ref<HTMLVideoElement | null>(null);
@@ -63,7 +65,7 @@ const surfaceStyle = computed<CSSProperties>(() => ({
 // 内置 Ken Burns 名字才有对应的 @keyframes，其余（animationRegister 登记过的自定义名）
 // 走 CSS 类模式——resolveEffectName 已经保证走到这里的名字要么内置、要么登记过
 const isBuiltinKenBurns = computed(() =>
-	props.animationName !== null && KEN_BURNS_NAMES.includes(props.animationName)
+	props.animationName !== null && isVegasAnimationName(props.animationName)
 );
 
 // Ken Burns 挂在内层媒体上,与外层 wrapper 的过渡 transform 互不覆盖。
@@ -167,32 +169,8 @@ onUnmounted(() => {
 	cancelSoundFade = null;
 });
 
-// 视频播完（或所有源都加载失败）后是否该切走
-const shouldAdvanceAfterVideo = () => props.advanceOnEnded || !videoLoop.value;
-
-// 播完时可能还不能切（例如短视频在首帧过渡期间就播完了），记下来等 canAdvance 变 true 再切
-let pendingAdvance = false;
-
-const advanceAfterVideo = (reason: string) => {
-	if (props.getCurrentSlide() !== props.index || !shouldAdvanceAfterVideo()) {
-		pendingAdvance = false;
-		return;
-	}
-	if (!props.canAdvance) {
-		pendingAdvance = true;
-		return;
-	}
-	pendingAdvance = false;
-	props.log(`${reason},切换到下一张`);
-	props.next();
-};
-
-watch(() => props.canAdvance, (canAdvance) => {
-	if (canAdvance && pendingAdvance) advanceAfterVideo('视频已提前结束');
-});
-
 const handleVideoEnded = () => {
-	advanceAfterVideo('视频播放结束');
+	emit('video-ended', props.index);
 };
 
 // <video> 用 <source> 子元素时，加载失败的 error 事件派发在各个 <source> 上而不是 <video> 上，
@@ -200,14 +178,14 @@ const handleVideoEnded = () => {
 const handleSourceError = (index: number) => {
 	if (index !== videoSources.value.length - 1) return;
 	props.logError(`视频所有源都加载失败: ${props.slide.src}`);
-	if (props.advanceOnEnded) advanceAfterVideo('视频无法播放');
+	emit('video-failed', props.index);
 };
 
 // 源已经选中之后的致命错误（解码失败、网络彻底中断）派发在 <video> 本身上
 const handleVideoError = () => {
 	const code = videoRef.value?.error?.code;
 	props.logError(`视频播放出错${code ? `（MediaError ${code}）` : ''}: ${props.slide.src}`);
-	if (props.advanceOnEnded) advanceAfterVideo('视频播放出错');
+	emit('video-failed', props.index);
 };
 
 const handleImgError = () => {

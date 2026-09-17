@@ -74,6 +74,27 @@ import { Vegas } from 'vue3-vegas'
 
 ---
 
+## 导出的常量与类型
+
+包导出了全部内置过渡效果与 Ken Burns 动画的名称，以冻结数组的形式。用在后台白名单、下拉菜单或任何需要权威名单但不想直接读文档的地方。
+
+```ts
+import { TRANSITION_NAMES, KEN_BURNS_NAMES, isVegasTransitionName, isVegasAnimationName } from 'vue3-vegas'
+import type { VegasTransitionName, VegasAnimationName, VegasEffectName } from 'vue3-vegas'
+
+// TRANSITION_NAMES = ['fade', 'fade2', 'blur', ..., 'zoomInOut']（27 个）
+// KEN_BURNS_NAMES = ['kenburns', 'kenburnsUp', ..., 'kenburnsDownRight']（9 个）
+
+isVegasTransitionName(userInput)  // userInput: string，收窄成 VegasTransitionName
+isVegasAnimationName(userInput)   // 收窄成 VegasAnimationName
+```
+
+`TRANSITION_NAMES` 与 `KEN_BURNS_NAMES` 是字符串字面量的只读数组——可以直接传给 `transition` / `animation` 当随机池。要校验任意 `string` 是否属于内置名单，推荐用 `isVegasTransitionName` / `isVegasAnimationName`：返回布尔值并顺带收窄类型，不必再自己应付直接在内置名单上调用 `.includes()` 时的字面量类型限制。
+
+`VegasEffectName<Name>` 就是这些 prop 实际接受的输入类型：内置名、`'random'`，或任意自定义字符串。`transition`、`firstTransition` 和 `animation` 这些 prop 接受内置名（编辑器自动补全）、`'random'`，或通过 `transitionRegister` / `animationRegister` 登记的任意自定义字符串。
+
+---
+
 ## Props
 
 ### 核心
@@ -209,7 +230,7 @@ import { Vegas } from 'vue3-vegas'
 
 ### 效果强度调节
 
-组件在根容器上挂了 6 个 CSS 变量，覆盖它们即可调整效果强度：
+组件通过 6 个 CSS 变量来控制效果强度。每个变量都有一个内置的回退值 `var(--vegas-xxx, 默认值)`，所以无论是否有样式注入都能用上默认值——不依赖 JavaScript 样式注入，严格 CSP 环境下也有效。在组件根元素、任意祖先或全局样式表里覆盖它们：
 
 | 变量 | 默认值 | 影响 |
 |------|--------|------|
@@ -220,7 +241,9 @@ import { Vegas } from 'vue3-vegas'
 | `--vegas-swirl-scale` | `2` | `swirl` 过渡的缩放倍数 |
 | `--vegas-zoom-scale` | `2` | `zoomOut` 的起始缩放，以及 `zoomIn2` 旧图离场时的缩放 |
 
-这些默认值以特异度为 0 的规则注入，任意选择器都能覆盖——给 `<Vegas>` 加个类名即可：
+注意：`getComputedStyle()` 在组件根元素上读不到这些变量的值（除非你主动设置过）—— 回退值只在 CSS 计算内生效，不存储在元素上。
+
+给 `<Vegas>` 加个类名即可覆盖：
 
 ```vue
 <template>
@@ -239,8 +262,8 @@ import { Vegas } from 'vue3-vegas'
 
 | Prop | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `defaultBackground` | `string` | — | 幻灯片开始前显示的背景图 URL |
-| `defaultBackgroundDuration` | `number` | `3000` | 默认背景停留时长（ms），结束后与第一张幻灯片交叉淡入 |
+| `defaultBackground` | `string` | — | 幻灯片开始前显示的背景图 URL；会一直显示到第一张幻灯片的图片加载完（如果有） |
+| `defaultBackgroundDuration` | `number` | `3000` | 默认背景最短停留时长（ms）；若首张图片尚未加载完成，会继续等待 |
 
 ### 布局
 
@@ -274,14 +297,22 @@ import { Vegas } from 'vue3-vegas'
 > `<video preload="auto">` 在后台预热 HTTP 缓存，不阻塞首帧，组件卸载时会中断未完成的下载 ——
 > 与原版 Vegas.js 的行为一致。
 
+### 图片加载与时序
+
+切到图片幻灯片时，组件会等该图片加载完成（或失败）才开始切换动画。等待期间前一张幻灯片保持显示。若图片已在浏览器缓存里，切换是同步的——与之前的行为完全一致。视频幻灯片立即切换，不等待。首张幻灯片用同样逻辑：若它是图片幻灯片，组件等图片就绪才开始首帧进入动画。
+
+配了 `defaultBackground` 时，默认背景会一直显示到「`defaultBackgroundDuration` 时间已过」**或**「首张图片就绪」中较晚的那个时刻。这个对首张图片的等待与预加载阶段、默认背景时长并行进行—— 不串行叠加时间。
+
+修改 `slides` 数组（增删幻灯片）时会尽量保留当前播放位置，组件继续显示同一张而不是跳回初始幻灯片。若当前下标因删减而越界，会自动钳到最后一张（这种调整不触发 `onWalk`）。启用 `shuffle` 时，增删幻灯片后顺序会重新洗牌，但当前那张不会立刻重复。
+
 ### 回调
 
 | Prop | 类型 | 说明 |
 |------|------|------|
 | `onInit` | `() => void` | 组件挂载时触发一次 |
-| `onPlay` | `(index: number, slide: SlideProps) => void` | 开始/恢复播放时触发 |
-| `onPause` | `(index: number, slide: SlideProps) => void` | 暂停时触发 |
-| `onWalk` | `(index: number, slide: SlideProps) => void` | 每次切换幻灯片时触发 |
+| `onPlay` | `(index: number, slide: SlideProps) => void` | 开始/恢复播放时触发（页面重新可见时也触发） |
+| `onPause` | `(index: number, slide: SlideProps) => void` | 暂停时触发（页面隐藏时也触发） |
+| `onWalk` | `(index: number, slide: SlideProps) => void` | 幻灯片切换真正完成时触发 |
 | `onEnd` | `(index: number, slide: SlideProps) => void` | `loop: false` 时播完最后一张触发 |
 
 除 `onInit` 外都收到当前（对 `onWalk` 是目标）幻灯片的下标与配置。`slides` 为空时
@@ -358,20 +389,20 @@ const vegas = ref<VegasHandle | null>(null)
 
 | 方法 | 返回值 | 说明 |
 |------|--------|------|
-| `play()` | `void` | 开始/恢复自动播放 |
+| `play()` | `void` | 开始或恢复自动播放 |
 | `pause()` | `void` | 暂停自动播放 |
 | `toggle()` | `void` | 在播放与暂停之间切换 |
-| `playing()` | `boolean` | 是否正在自动播放，与 `onPlay` / `onPause` 的时机一致 |
-| `next()` | `boolean` | 切换到下一张 |
-| `previous()` | `boolean` | 切换到上一张 |
-| `goTo(index)` | `boolean` | 跳转到指定下标（原版 Vegas 的 `jump`） |
+| `playing()` | `boolean` | 是否正在自动播放 |
+| `next()` | `boolean` | 请求切换到下一张 |
+| `previous()` | `boolean` | 请求切换到上一张 |
+| `goTo(index)` | `boolean` | 请求跳转到指定下标（原版 Vegas 的 `jump`） |
 | `current()` | `number` | 当前幻灯片在 `slides` 中的下标 |
 
-`next` / `previous` / `goTo` 返回是否真的开始了切换。下标越界、目标就是当前幻灯片、
-或上一次切换动画尚未结束时，它们不做任何事并返回 `false` —— 这三种情况在快速连点
-导航按钮时都会出现。
+`next()`、`previous()`、`goTo()` 在下标越界、目标就是当前幻灯片或上一次过渡动画尚未结束时返回 `false`，否则返回 `true` 表示请求被接受。若目标是尚未缓存的图片幻灯片，切换会延后到图片加载完成（或失败）。延后期间，新的导航请求会取代前一个。
 
-`current()` 返回的始终是 `slides` 里的真实下标，`shuffle` 打乱播放顺序时也是如此。
+`current()` 返回的始终是 `slides` 里的真实下标，`shuffle` 打乱播放顺序时也是如此。仅在切换真正完成时（加载等待后）才会更新。
+
+`playing()` 的变化时机与 `onPlay` 和 `onPause` 一致。
 
 ### 圆点导航
 
@@ -417,7 +448,7 @@ const active = ref(0)
 > 指示器写在 `<Vegas>` 之后即可。组件根元素带 `isolation: isolate`，内部图层
 > （含遮罩、进度条）不会溢出到宿主页面，兄弟节点默认就压在它上面。
 >
-> `onWalk` 只在**切换**时触发，首屏渲染不触发，所以 `active` 的初值要和
+> `onWalk` 只在切换**真正完成**时触发（含图片加载等待后），首屏渲染不触发，所以 `active` 的初值要和
 > `slide` prop 保持一致（默认都是 `0`）。
 
 ---
@@ -592,3 +623,15 @@ MIT
 - **视频的 `muted` / `loop` 默认值改为 `true`**，与原版 Vegas.js 一致。0.2.x 里不写这两项时，视频既不静音
   （常被浏览器自动播放策略拦下），也不循环，放完就切到下一张；现在默认静音循环，只按 `delay` 切走。
   想保留「放完就切」，给该张设 `loop: false`，或（0.5.0 起）设 `delay: 'video'`。
+
+---
+
+## 0.5.0 之后的行为变化（未发布）
+
+- **CSS 变量现在用回退值而不是注入样式。** `getComputedStyle()` 在根元素上读不到这些变量（除非你主动设置）—— 回退值只在 CSS 计算内生效。在根容器或任意祖先设置变量仍然照常工作。
+
+- **`next()` / `previous()` / `goTo()` 现在返回 `true` 表示「请求被接受」。** 目标是尚未缓存的图片幻灯片时，切换延后到图片加载完成。`current()` 和 `onWalk` 仅在切换真正完成时更新。
+
+- **启动完成后修改 `transitionDuration` / `firstTransitionDuration` / `defaultBackgroundDuration` / `preload` / `defaultBackground` 不再重启启动流程。** 改动仅影响后续切换。启动流程进行中时修改仍会触发重新启动。
+
+- **增删 `slides` 现在保留播放位置。** 组件继续显示同一张幻灯片而非跳回初始位置。若当前下标越界则自动钳到最后一张，不触发 `onWalk`。修改 `slide` 或 `shuffle` 仍然重新初始化。

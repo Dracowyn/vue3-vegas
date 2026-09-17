@@ -8,5 +8,10 @@ export default defineConfig({
 		globals: true,
 		include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
 		setupFiles: './tests/setup.ts',
+		typecheck: {
+			enabled: true,
+			checker: 'vue-tsc',
+			tsconfig: './tests/tsconfig.json',
+		},
 	},
 });

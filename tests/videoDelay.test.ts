@@ -192,36 +192,97 @@ describe('离场中的视频不再触发切换', () => {
 
 		expect(handleOf(wrapper).current()).toBe(1);
 	});
+});
 
-	it('离场前记下的待切换，离场后也不会再触发', async () => {
-		const next = vi.fn();
-		let current = 0;
+// VegasSlideRenderer 不再自己判断要不要切换（那是编排层 useVideoAdvance 的事，见
+// tests/videoAdvance.test.ts 里「挂起期间当前幻灯片变了则作废」等用例），它只上报事实。
+describe('VegasSlideRenderer 只上报视频事实，不自行决定是否切换', () => {
+	const mountRenderer = (advanceOnEnded: boolean) => {
 		const noop = () => {};
-		const wrapper = mount(VegasSlideRenderer, {
+		return mount(VegasSlideRenderer, {
 			props: {
 				slide: untilEnded,
-				index: 0,
+				index: 3,
 				cover: true,
 				align: 'center',
 				valign: 'center',
 				color: null,
 				animationName: null,
 				animationDuration: 5000,
+				transitionDuration: 1000,
 				isMediaPlaying: true,
-				canAdvance: false,
-				advanceOnEnded: true,
-				getCurrentSlide: () => current,
-				next,
+				advanceOnEnded,
 				log: noop,
 				logWarn: noop,
 				logError: noop,
 			},
 		});
+	};
+
+	it('视频播完时上报 video-ended，带上自己的下标，不管 advanceOnEnded 是什么', async () => {
+		const wrapper = mountRenderer(false);
 
 		wrapper.find('video').element.dispatchEvent(new Event('ended'));
-		current = 1;
-		await wrapper.setProps({ canAdvance: true });
+		await flushEffects();
 
-		expect(next).not.toHaveBeenCalled();
+		expect(wrapper.emitted('video-ended')).toEqual([[3]]);
+	});
+
+	it('所有视频源都加载失败时上报 video-failed，带上自己的下标', async () => {
+		const wrapper = mountRenderer(false);
+
+		const sources = wrapper.findAll('source');
+		sources.at(-1)!.element.dispatchEvent(new Event('error'));
+		await flushEffects();
+
+		expect(wrapper.emitted('video-failed')).toEqual([[3]]);
+	});
+
+	it('视频播放途中出错时上报 video-failed，带上自己的下标', async () => {
+		const wrapper = mountRenderer(false);
+
+		wrapper.find('video').element.dispatchEvent(new Event('error'));
+		await flushEffects();
+
+		expect(wrapper.emitted('video-failed')).toEqual([[3]]);
+	});
+});
+
+// 首帧过渡期间视频就播完（挂起，见 useVideoAdvance），真正提交切换要等 phase 变
+// 'playing' 才发生——这一刻 Vegas.vue 里 onPlay/onPause 的 watch 与 useVideoAdvance
+// 内部触发 next() 的 watch 同批触发,顺序不能反：onPlay 必须先于本次切换触发的 onWalk。
+describe('回调顺序：首帧挂起的视频切换不能抢在 onPlay 前面', () => {
+	afterEach(() => {
+		if (vi.isFakeTimers()) {
+			vi.runOnlyPendingTimers();
+			vi.useRealTimers();
+		}
+	});
+
+	it("onPlay(0) 先于视频提前结束触发的 onWalk(1)", async () => {
+		vi.useFakeTimers();
+		const calls: string[] = [];
+		const wrapper = mount(Vegas, {
+			props: {
+				slides: [
+					{ src: '/v.jpg', video: { src: ['/v.mp4'], loop: false } },
+					{ src: '/b.jpg' },
+				] as SlideProps[],
+				autoplay: true,
+				delay: 60000,
+				transitionDuration: 1000,
+				firstTransitionDuration: 1000,
+				onPlay: (index) => calls.push(`onPlay(${index})`),
+				onWalk: (index) => calls.push(`onWalk(${index})`),
+			},
+		});
+		await flushEffects();
+
+		wrapper.find('video').element.dispatchEvent(new Event('ended'));
+		await flushEffects();
+
+		await advanceTimers(1000);
+
+		expect(calls).toEqual(['onPlay(0)', 'onWalk(1)']);
 	});
 });

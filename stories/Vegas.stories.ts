@@ -2,8 +2,8 @@ import { ref } from 'vue';
 import type { Meta, StoryObj } from 'storybook-vue3-rsbuild';
 import Vegas from '../src/Vegas.vue';
 import type { SlideProps, VegasProps, VegasHandle } from '../src/types';
-import { TRANSITION_NAMES } from '../src/composables/transitionPresets';
-import { KEN_BURNS_NAMES } from '../src/composables/kenBurnsPresets';
+import { TRANSITION_NAMES } from '../src/effects/transitionPresets';
+import { KEN_BURNS_NAMES } from '../src/effects/kenBurnsPresets';
 
 type TransitionName = string;
 
