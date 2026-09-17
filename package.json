@@ -47,20 +47,21 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "@rslib/core": "^0.23.2",
-    "@storybook/addon-docs": "^10.5.5",
-    "@storybook/addon-onboarding": "^10.5.5",
-    "@vitejs/plugin-vue": "^6.0.8",
-    "@vue/test-utils": "^2.4.11",
+    "@rslib/core": "^1.0.1",
+    "@storybook/addon-docs": "^10.6.0",
+    "@storybook/addon-onboarding": "^10.6.0",
+    "@vitejs/plugin-vue": "^6.0.9",
+    "@vue/test-utils": "^2.5.0",
     "jsdom": "^30.0.1",
     "rsbuild-plugin-unplugin-vue": "^0.2.0",
-    "storybook": "^10.5.5",
-    "storybook-addon-rslib": "^3.4.0",
-    "storybook-vue3-rsbuild": "^3.4.0",
+    "storybook": "^10.6.0",
+    "storybook-addon-rslib": "^3.4.2",
+    "storybook-vue3-rsbuild": "^3.4.2",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.10",
-    "vue": "^3.5.40",
-    "vue-tsc": "^3.3.9"
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1",
+    "vue": "^3.5.42",
+    "vue-tsc": "^3.3.11"
   },
   "peerDependencies": {
     "vue": "^3.2.0"

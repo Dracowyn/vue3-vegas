@@ -29,6 +29,8 @@ There is no separate lint step — `strict` type checking (incl. `noUnusedLocals
 
 Built with **rslib** (Rsbuild/Rspack), configured in [rslib.config.ts](rslib.config.ts). The non-obvious part: `bundle: false` makes the output **preserve the `src/` file structure** instead of bundling into one file, so `src/` organization maps directly to the published package — keep modules small and cohesive. ESM-only; `.vue` compiled via `rsbuild-plugin-unplugin-vue`; `vue-tsc` emits declarations (`tsconfig` is `emitDeclarationOnly`).
 
+**TypeScript is deliberately held at 6.x — do not bump it to 7.** TS 7 (the Go port) no longer ships the classic JS compiler API (`typescript/lib/tsc` is not exported), so `vue-tsc` crashes with `ERR_PACKAGE_PATH_NOT_EXPORTED` and `pnpm build` fails ([vuejs/language-tools#5381](https://github.com/vuejs/language-tools/issues/5381)). Its `>=5.0.0` peer range does not warn about this. Upgrade other deps with `pnpm update --latest '!typescript'` until an official vue-tsc release supports TS 7. `vite` is an explicit devDependency because vitest 5 made it a required peer.
+
 ## Architecture
 
 `Vegas.vue` is a thin **orchestrator**: it owns props/defaults and the `isTransitioning` lock, then wires together a set of focused composables and presentational subcomponents. Almost all logic lives in [src/composables/](src/composables/); the `src/components/*` files are purely presentational.
