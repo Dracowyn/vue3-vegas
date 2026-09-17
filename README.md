@@ -1,32 +1,34 @@
 # vue3-vegas
 
-> Vue 3 版的 [Vegas.js](https://github.com/jaysalvat/vegas) —— 全屏幻灯片 / 背景轮播组件
+English | [简体中文](https://github.com/Dracowyn/vue3-vegas/blob/master/README.zh.md)
 
-基于原版 Vegas.js 的核心理念，为 Vue 3 重新设计，支持图片、视频幻灯片，内置多种过渡效果、预加载、随机播放等特性。
+> [Vegas.js](https://github.com/jaysalvat/vegas) for Vue 3 — a full-screen slideshow / background component
 
----
-
-## 特性
-
-- 图片 & 视频幻灯片支持（含不静音视频的声音淡入淡出）
-- 27 种内置过渡效果，其中 26 种与原版 Vegas.js 一一对应，另加 `zoomInOut` 扩展效果
-- 9 种 Ken Burns 缓慢推拉镜头动画
-- `transition` / `animation` 支持 `'random'`（可用 register 注册自定义名并入候选池）与数组形式（从数组中随机抽取）
-- 支持通过 CSS 类注册自定义过渡 / Ken Burns 动画，不必局限于内置效果
-- 每张幻灯片可独立配置过渡效果、时长、延迟
-- 默认背景图，与第一张幻灯片交叉淡入过渡
-- 随机播放（shuffle）
-- 预加载（图片批量预加载 + 视频预加载）
-- 顶部播放进度条（timer）
-- 半透明遮罩层（overlay）
-- 加载进度指示器
-- 页面隐藏时自动暂停，重新可见时恢复
-- 手动控制 API：play / pause / toggle / next / previous / goTo，以及 playing() / current() 状态查询
-- 完整 TypeScript 类型支持
+A Vue 3 rewrite of the original Vegas.js, with image and video slides, built-in transitions, preloading and shuffle.
 
 ---
 
-## 安装
+## Features
+
+- Image & video slides (with sound fade-in / fade-out for unmuted videos)
+- 27 built-in transitions: 26 match the original Vegas.js one-to-one, plus the extra `zoomInOut`
+- 9 Ken Burns animations (slow zoom and pan)
+- `transition` / `animation` accept `'random'` (custom names added through the register props join the random pool) or an array (one entry is picked at random)
+- Custom transitions / Ken Burns animations defined as CSS classes
+- Per-slide transition, duration and delay
+- Default background image that cross-fades into the first slide
+- Shuffle
+- Preloading (batched image preloading + video preloading)
+- Progress bar at the top (timer)
+- Semi-transparent overlay
+- Loading progress indicator
+- Pauses automatically when the page is hidden, resumes when it becomes visible again
+- Imperative API: play / pause / toggle / next / previous / goTo, plus playing() / current() state queries
+- Full TypeScript types
+
+---
+
+## Installation
 
 **npm**
 
@@ -48,7 +50,7 @@ pnpm add vue3-vegas
 
 ---
 
-## 基本用法
+## Basic usage
 
 ```vue
 <script setup lang="ts">
@@ -68,83 +70,83 @@ import { Vegas } from 'vue3-vegas'
 </template>
 ```
 
-> 父容器必须有明确的高度，Vegas 会填满父容器的 100% 宽高。
+> The parent container must have an explicit height. Vegas fills 100% of its parent's width and height.
 
 ---
 
 ## Props
 
-### 核心
+### Core
 
-| Prop | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `slides` | `SlideProps[]` | — | **必填**。幻灯片列表 |
-| `slide` | `number` | `0` | 初始幻灯片索引 |
-| `autoplay` | `boolean` | `true` | 是否自动播放 |
-| `delay` | `number` | `5000` | 每张幻灯片停留时长（ms） |
-| `videoMaxDelay` | `number` | `300000` | `delay: 'video'` 的视频幻灯片最长停留时长（ms），视频卡住时兜底切走 |
-| `loop` | `boolean` | `true` | 是否循环播放 |
-| `shuffle` | `boolean` | `false` | 是否随机顺序播放 |
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `slides` | `SlideProps[]` | — | **Required.** The list of slides |
+| `slide` | `number` | `0` | Index of the initial slide |
+| `autoplay` | `boolean` | `true` | Whether to play automatically |
+| `delay` | `number` | `5000` | How long each slide stays on screen (ms) |
+| `videoMaxDelay` | `number` | `300000` | Maximum time (ms) a video slide with `delay: 'video'` stays on screen, so a stalled video can't hold up the slideshow |
+| `loop` | `boolean` | `true` | Whether to loop |
+| `shuffle` | `boolean` | `false` | Whether to play the slides in random order |
 
-### 过渡效果
+### Transitions
 
-| Prop | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `transition` | `string \| string[]` | `'fade'` | 幻灯片切换过渡效果。传数组时每次切换从数组里随机抽一个 |
-| `transitionDuration` | `number` | `1000` | 切换动画时长（ms） |
-| `firstTransition` | `string \| string[] \| null` | `null` | 第一张幻灯片的进入效果，不设置则使用 `transition` |
-| `firstTransitionDuration` | `number \| null` | `null` | 第一张幻灯片进入动画时长（ms），不设置则使用 `transitionDuration` |
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `transition` | `string \| string[]` | `'fade'` | Transition used when switching slides. With an array, one entry is picked at random on each switch |
+| `transitionDuration` | `number` | `1000` | Transition duration (ms) |
+| `firstTransition` | `string \| string[] \| null` | `null` | Entrance effect of the first slide; falls back to `transition` when not set |
+| `firstTransitionDuration` | `number \| null` | `null` | Entrance duration of the first slide (ms); falls back to `transitionDuration` when not set |
 
-**可用过渡效果：**
+**Available transitions:**
 
-| 基础名 | 说明 |
-|----|------|
-| `fade` | 淡入 |
-| `blur` | 由模糊转清晰 |
-| `flash` | 高亮闪白进入 |
-| `negative` | 由负片反相转正常 |
-| `burn` | 由高对比高饱和转正常 |
-| `slideLeft` | 从右向左滑入 |
-| `slideRight` | 从左向右滑入 |
-| `slideUp` | 从下向上滑入 |
-| `slideDown` | 从上向下滑入 |
-| `zoomIn` | 从 0 放大到原尺寸 |
-| `zoomOut` | 从 2 倍缩小到原尺寸 |
-| `swirlLeft` | 从 2 倍缩小 + 逆时针旋转（`35deg` → `0deg`）进入 |
-| `swirlRight` | 从 2 倍缩小 + 顺时针旋转（`-35deg` → `0deg`）进入 |
+| Base name | Description |
+|-----------|-------------|
+| `fade` | Fades in |
+| `blur` | From blurred to sharp |
+| `flash` | Enters with a bright white flash |
+| `negative` | From an inverted negative to normal |
+| `burn` | From high contrast and saturation to normal |
+| `slideLeft` | Slides in from right to left |
+| `slideRight` | Slides in from left to right |
+| `slideUp` | Slides in from bottom to top |
+| `slideDown` | Slides in from top to bottom |
+| `zoomIn` | Scales up from 0 to full size |
+| `zoomOut` | Scales down from 2× to full size |
+| `swirlLeft` | Enters scaling down from 2× while rotating counter-clockwise (`35deg` → `0deg`) |
+| `swirlRight` | Enters scaling down from 2× while rotating clockwise (`-35deg` → `0deg`) |
 
-每个基础名都有一个 `2` 后缀变体（如 `fade2`、`swirlLeft2`）：
+Every base name has a variant with a `2` suffix (e.g. `fade2`, `swirlLeft2`):
 
-- **无后缀**（`fade`）：只有新幻灯片做动画，旧的原地等待被移除。
-- **带 `2` 后缀**（`fade2`）：新幻灯片进入的同时，旧的也做反向离场动画。
+- **No suffix** (`fade`): Only the incoming slide animates; the outgoing one stays in place until it is removed.
+- **`2` suffix** (`fade2`): While the new slide enters, the old one plays the reverse animation to leave.
 
-另有 `zoomInOut`（进入后持续缓慢放大）——这是 vue3-vegas 的自有扩展，不属于原版。
+There is also `zoomInOut` (keeps zooming in slowly after entering). It is a vue3-vegas extension and not part of the original.
 
-`transition: 'random'` 从全部内置过渡中随机选一个；传数组（如 `['fade', 'slideLeft']`）则只从
-数组内随机选一个。`transitionRegister` 见下方 [自定义过渡 / 自定义动画](#自定义过渡--自定义动画)。
+`transition: 'random'` picks from all built-in transitions; an array (e.g. `['fade', 'slideLeft']`) picks
+only from that array. For `transitionRegister`, see [Custom transitions / animations](#custom-transitions--animations) below.
 
-### Ken Burns 动画
+### Ken Burns animations
 
-| Prop | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `animation` | `string \| string[] \| null` | `null` | Ken Burns 动画名，`null` 表示不启用。传数组时每次切换从数组里随机抽一个 |
-| `animationDuration` | `number \| 'auto'` | `'auto'` | 动画时长（ms）。`'auto'` 取该张幻灯片的 `delay`（`delay: 'video'` 时取全局 `delay`） |
-| `transitionRegister` | `string[]` | — | 注册自定义过渡名，并入内置池供 `transition: 'random'` 抽取 |
-| `animationRegister` | `string[]` | — | 注册自定义动画名，并入内置池供 `animation: 'random'` 抽取 |
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `animation` | `string \| string[] \| null` | `null` | Ken Burns animation name; `null` disables it. With an array, one entry is picked at random on each switch |
+| `animationDuration` | `number \| 'auto'` | `'auto'` | Animation duration (ms). `'auto'` uses the slide's `delay` (the global `delay` when the slide uses `delay: 'video'`) |
+| `transitionRegister` | `string[]` | — | Registers custom transition names and adds them to the built-in pool used by `transition: 'random'` |
+| `animationRegister` | `string[]` | — | Registers custom animation names and adds them to the built-in pool used by `animation: 'random'` |
 
-可用动画：`kenburns`、`kenburnsUp`、`kenburnsDown`、`kenburnsLeft`、`kenburnsRight`、`kenburnsUpLeft`、`kenburnsUpRight`、`kenburnsDownLeft`、`kenburnsDownRight`。
+Available animations: `kenburns`, `kenburnsUp`, `kenburnsDown`, `kenburnsLeft`, `kenburnsRight`, `kenburnsUpLeft`, `kenburnsUpRight`, `kenburnsDownLeft`, `kenburnsDownRight`.
 
-### 自定义过渡 / 自定义动画
+### Custom transitions / animations
 
-内置效果之外，也可以用 CSS 类自己定义过渡 / 动画——用法与原版 Vegas.js 一致。
+You can also define your own transitions and animations with CSS classes, the same way as in the original Vegas.js.
 
-**自定义过渡**：用 `transitionRegister` 注册名字，组件会在切换时依次给元素加类名，样式（初始态 /
-目标态 / 离场态）全部由你的 CSS 决定：
+**Custom transitions**: Register a name with `transitionRegister`. During a switch the component adds class names to the
+elements in sequence, and all the styles (initial, target and leaving state) come from your CSS:
 
-- 入场元素：先加 `vegas-transition-{name}`，随后（下一帧）加 `vegas-transition-{name}-in` 并设置
-  `transition: all {duration}ms`。把 `vegas-transition-{name}` 里的样式当作初始态，
-  `vegas-transition-{name}-in` 里的样式当作目标态。
-- 离场元素：加 `vegas-transition-{name}-out` 并设置同样的 `transition`。
+- The entering element first gets `vegas-transition-{name}`, then (on the next frame) `vegas-transition-{name}-in` along with
+  `transition: all {duration}ms`. Treat the styles in `vegas-transition-{name}` as the initial state and the styles in
+  `vegas-transition-{name}-in` as the target state.
+- The leaving element gets `vegas-transition-{name}-out` with the same `transition`.
 
 ```vue
 <template>
@@ -170,8 +172,8 @@ import { Vegas } from 'vue3-vegas'
 </style>
 ```
 
-**自定义动画**：用 `animationRegister` 注册名字，内层媒体元素会获得 `vegas-animation-{name}` 类并
-设置 `animationDuration`，`@keyframes` 需要你自己在 CSS 里定义：
+**Custom animations**: Register a name with `animationRegister`. The inner media element gets the `vegas-animation-{name}` class
+and its `animationDuration` is set; you define the `@keyframes` in your own CSS:
 
 ```vue
 <template>
@@ -195,7 +197,7 @@ import { Vegas } from 'vue3-vegas'
 </style>
 ```
 
-`transition` / `animation` 也都支持数组形式，从数组内随机抽取，可以和 register 搭配一起用：
+`transition` / `animation` also accept arrays, picking one entry at random, and can be combined with the register props:
 
 ```vue
 <Vegas
@@ -205,20 +207,20 @@ import { Vegas } from 'vue3-vegas'
 />
 ```
 
-### 效果强度调节
+### Tuning effect intensity
 
-组件在根容器上挂了 6 个 CSS 变量，覆盖它们即可调整效果强度：
+The component exposes 6 CSS variables on its root container. Override them to adjust how strong the effects are:
 
-| 变量 | 默认值 | 影响 |
-|------|--------|------|
-| `--vegas-kenburns-scale` | `1.5` | Ken Burns 起始缩放 |
-| `--vegas-kenburns-translate` | `10%` | Ken Burns 平移距离 |
-| `--vegas-blur-value` | `32px` | `blur` 过渡的模糊半径 |
-| `--vegas-swirl-degree` | `35deg` | `swirl` 过渡的旋转角度 |
-| `--vegas-swirl-scale` | `2` | `swirl` 过渡的缩放倍数 |
-| `--vegas-zoom-scale` | `2` | `zoomOut` 的起始缩放，以及 `zoomIn2` 旧图离场时的缩放 |
+| Variable | Default | Affects |
+|----------|---------|---------|
+| `--vegas-kenburns-scale` | `1.5` | Starting scale of Ken Burns |
+| `--vegas-kenburns-translate` | `10%` | Pan distance of Ken Burns |
+| `--vegas-blur-value` | `32px` | Blur radius of the `blur` transition |
+| `--vegas-swirl-degree` | `35deg` | Rotation angle of the `swirl` transitions |
+| `--vegas-swirl-scale` | `2` | Scale factor of the `swirl` transitions |
+| `--vegas-zoom-scale` | `2` | Starting scale of `zoomOut`, and the scale of the outgoing image in `zoomIn2` |
 
-这些默认值以特异度为 0 的规则注入，任意选择器都能覆盖——给 `<Vegas>` 加个类名即可：
+These defaults are injected with zero-specificity rules, so any selector overrides them. For example, add a class to `<Vegas>`:
 
 ```vue
 <template>
@@ -233,104 +235,106 @@ import { Vegas } from 'vue3-vegas'
 </style>
 ```
 
-### 默认背景
+### Default background
 
-| Prop | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `defaultBackground` | `string` | — | 幻灯片开始前显示的背景图 URL |
-| `defaultBackgroundDuration` | `number` | `3000` | 默认背景停留时长（ms），结束后与第一张幻灯片交叉淡入 |
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `defaultBackground` | `string` | — | URL of a background image shown before the slides start |
+| `defaultBackgroundDuration` | `number` | `3000` | How long the default background stays (ms) before it cross-fades into the first slide |
 
-### 布局
+### Layout
 
-| Prop | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `cover` | `boolean` | `true` | 图片/视频是否以 `cover` 模式填充容器 |
-| `align` | `'left' \| 'center' \| 'right'` | `'center'` | 水平对齐方式 |
-| `valign` | `'top' \| 'center' \| 'bottom'` | `'center'` | 垂直对齐方式 |
-| `color` | `string \| null` | `null` | 容器背景色（图片加载前显示） |
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `cover` | `boolean` | `true` | Whether images / videos fill the container in `cover` mode |
+| `align` | `'left' \| 'center' \| 'right'` | `'center'` | Horizontal alignment |
+| `valign` | `'top' \| 'center' \| 'bottom'` | `'center'` | Vertical alignment |
+| `color` | `string \| null` | `null` | Container background color (shown before the image loads) |
 
-### UI 功能
+### UI
 
-| Prop | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `timer` | `boolean` | `false` | 顶部进度条，显示整体播放进度 |
-| `overlay` | `boolean` | `false` | 幻灯片上方半透明遮罩 |
-| `overlayColor` | `string` | `'rgba(0,0,0,0.3)'` | 遮罩颜色（任意 CSS 颜色值） |
-| `showLoading` | `boolean` | `false` | 预加载时显示加载进度指示器 |
-| `loadingText` | `string` | `'Loading...'` | 加载指示器提示文字 |
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `timer` | `boolean` | `false` | Progress bar at the top showing progress through the whole slideshow |
+| `overlay` | `boolean` | `false` | Semi-transparent overlay above the slides |
+| `overlayColor` | `string` | `'rgba(0,0,0,0.3)'` | Overlay color (any CSS color value) |
+| `showLoading` | `boolean` | `false` | Shows a loading progress indicator while preloading |
+| `loadingText` | `string` | `'Loading...'` | Text of the loading indicator |
 
-### 预加载
+### Preloading
 
-| Prop | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `preload` | `boolean` | `false` | 主开关，等价于同时开启 `preloadImage` 与 `preloadVideo` |
-| `preloadImage` | `boolean` | `false` | 预加载图片资源 |
-| `preloadImageBatch` | `number` | `3` | 图片预加载并发批次数 |
-| `preloadVideo` | `boolean` | `false` | 预加载视频资源（后台预热缓存，不阻塞播放） |
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `preload` | `boolean` | `false` | Master switch, equivalent to enabling both `preloadImage` and `preloadVideo` |
+| `preloadImage` | `boolean` | `false` | Preloads images |
+| `preloadImageBatch` | `number` | `3` | How many images are preloaded concurrently in each batch |
+| `preloadVideo` | `boolean` | `false` | Preloads videos (warms the cache in the background without blocking playback) |
 
-> 只有**图片**预加载会卡住播放（`showLoading` 的进度条也只统计图片）。视频走游离
-> `<video preload="auto">` 在后台预热 HTTP 缓存，不阻塞首帧，组件卸载时会中断未完成的下载 ——
-> 与原版 Vegas.js 的行为一致。
+> Only **image** preloading holds up playback (the `showLoading` progress indicator also counts images only). Videos
+> warm the HTTP cache in the background through detached `<video preload="auto">` elements, so they don't block the
+> first frame, and unfinished downloads are aborted when the component unmounts. The original Vegas.js behaves the same way.
 
-### 回调
+### Callbacks
 
-| Prop | 类型 | 说明 |
-|------|------|------|
-| `onInit` | `() => void` | 组件挂载时触发一次 |
-| `onPlay` | `(index: number, slide: SlideProps) => void` | 开始/恢复播放时触发 |
-| `onPause` | `(index: number, slide: SlideProps) => void` | 暂停时触发 |
-| `onWalk` | `(index: number, slide: SlideProps) => void` | 每次切换幻灯片时触发 |
-| `onEnd` | `(index: number, slide: SlideProps) => void` | `loop: false` 时播完最后一张触发 |
+| Prop | Type | Description |
+|------|------|-------------|
+| `onInit` | `() => void` | Fires once when the component mounts |
+| `onPlay` | `(index: number, slide: SlideProps) => void` | Fires when playback starts or resumes |
+| `onPause` | `(index: number, slide: SlideProps) => void` | Fires when playback pauses |
+| `onWalk` | `(index: number, slide: SlideProps) => void` | Fires on every slide switch |
+| `onEnd` | `(index: number, slide: SlideProps) => void` | Fires after the last slide has played when `loop: false` |
 
-除 `onInit` 外都收到当前（对 `onWalk` 是目标）幻灯片的下标与配置。`slides` 为空时
-这几个回调都不触发。
+All callbacks except `onInit` receive the index and config of the current slide (for `onWalk`, the target slide).
+None of them fire when `slides` is empty.
 
-关于 `onEnd`：
+About `onEnd`:
 
-- 只由**往后走到头**触发。`previous()` 退到第一张不算播完，不触发（与原版一致）。
-- 带的是**仍在显示的那一张**。原版这里传的是越界下标和 `undefined`，属于上游 bug，没有照搬。
-- **播完时如果本来正在自动播放**，播放确实停止了，所以 `onPause` 随后也会触发，
-  顺序是 `onEnd` → `onPause`；原版只触发 `end`。本来就是暂停状态（比如
-  `autoplay: false` 时手动 `next()` 到底）则只有 `onEnd`。
-- 播完之后再调 `next()` 会**再次**触发 `onEnd`（与原版一致）。要重播先 `goTo(0)` 再 `play()`。
+- It fires only when moving **forward** past the end. Going back to the first slide with `previous()` doesn't count
+  as finishing and doesn't fire it (same as the original).
+- It passes the slide that is still showing. The original passes an out-of-range index and `undefined` here,
+  an upstream bug vue3-vegas doesn't copy.
+- **If autoplay was running when the end is reached**, playback stops, so `onPause` fires right after,
+  in the order `onEnd` → `onPause`; the original only fires `end`. If it was already paused (for example with
+  `autoplay: false` and `next()` called manually up to the end), only `onEnd` fires.
+- Calling `next()` again after the end fires `onEnd` again (same as the original). To replay, call `goTo(0)` and then `play()`.
 
-### 调试
+### Debugging
 
-| Prop | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `debug` | `boolean` | `false` | 开启控制台调试日志 |
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `debug` | `boolean` | `false` | Enables debug logging in the console |
 
 ---
 
 ## SlideProps
 
-每张幻灯片可独立覆盖全局配置：
+Each slide can override the global settings:
 
 ```ts
 interface SlideProps {
-  src: string                           // 图片 URL（视频幻灯片也需提供封面 URL）
-  color?: string | null                 // 幻灯片背景色，覆盖全局 color
-  delay?: number | 'video' | null       // 停留时长（ms），覆盖全局 delay；视频幻灯片可设 'video' 表示播完一遍再切
-  align?: 'left' | 'center' | 'right'  // 水平对齐，覆盖全局 align
-  valign?: 'top' | 'center' | 'bottom' // 垂直对齐，覆盖全局 valign
-  transition?: string | string[] | null // 过渡效果，覆盖全局 transition（支持数组）
-  transitionDuration?: number | null    // 过渡时长（ms），覆盖全局 transitionDuration
-  animation?: string | string[] | null  // Ken Burns 动画名，覆盖全局 animation（支持数组）
-  animationDuration?: number | 'auto' | null // 动画时长（ms），覆盖全局 animationDuration
-  cover?: boolean                       // 填充模式，覆盖全局 cover
-  video?: string[] | {                  // 数组简写等价于 { src: [...] }
-    src: string[]    // 视频文件列表（建议同时提供 .mp4 / .webm）
-    muted?: boolean  // 是否静音，默认 true（不静音会被浏览器自动播放策略拦截）
-    loop?: boolean   // 是否循环，默认 true；false 时视频结束后自动切换下一张
+  src: string                           // Image URL (video slides also need one, used as the poster)
+  color?: string | null                 // Slide background color, overrides global color
+  delay?: number | 'video' | null       // Time on screen (ms), overrides global delay; video slides can use 'video' to play through once before switching
+  align?: 'left' | 'center' | 'right'  // Horizontal alignment, overrides global align
+  valign?: 'top' | 'center' | 'bottom' // Vertical alignment, overrides global valign
+  transition?: string | string[] | null // Transition, overrides global transition (arrays supported)
+  transitionDuration?: number | null    // Transition duration (ms), overrides global transitionDuration
+  animation?: string | string[] | null  // Ken Burns animation name, overrides global animation (arrays supported)
+  animationDuration?: number | 'auto' | null // Animation duration (ms), overrides global animationDuration
+  cover?: boolean                       // Fill mode, overrides global cover
+  video?: string[] | {                  // The array shorthand is equivalent to { src: [...] }
+    src: string[]    // Video files (providing both .mp4 and .webm is recommended)
+    muted?: boolean  // Whether it is muted, defaults to true (unmuted autoplay gets blocked by browser autoplay policies)
+    loop?: boolean   // Whether it loops, defaults to true; when false, switches to the next slide after the video ends
   }
 }
 ```
 
 ---
 
-## 手动控制
+## Manual control
 
-通过 `ref` 获取组件实例后可调用以下方法：
+Get the component instance through a `ref` and call these methods:
 
 ```vue
 <script setup lang="ts">
@@ -344,36 +348,36 @@ const vegas = ref<VegasHandle | null>(null)
 <template>
   <div style="height: 100vh">
     <Vegas ref="vegas" :slides="slides" :autoplay="false" />
-    <button @click="vegas?.previous()">上一张</button>
-    <button @click="vegas?.play()">播放</button>
-    <button @click="vegas?.pause()">暂停</button>
-    <button @click="vegas?.next()">下一张</button>
+    <button @click="vegas?.previous()">Previous</button>
+    <button @click="vegas?.play()">Play</button>
+    <button @click="vegas?.pause()">Pause</button>
+    <button @click="vegas?.next()">Next</button>
   </div>
 </template>
 ```
 
-**VegasHandle 方法：**
+**VegasHandle methods:**
 
-| 方法 | 返回值 | 说明 |
-|------|--------|------|
-| `play()` | `void` | 开始/恢复自动播放 |
-| `pause()` | `void` | 暂停自动播放 |
-| `toggle()` | `void` | 在播放与暂停之间切换 |
-| `playing()` | `boolean` | 是否正在自动播放，与 `onPlay` / `onPause` 的时机一致 |
-| `next()` | `boolean` | 切换到下一张 |
-| `previous()` | `boolean` | 切换到上一张 |
-| `goTo(index)` | `boolean` | 跳转到指定下标（原版 Vegas 的 `jump`） |
-| `current()` | `number` | 当前幻灯片在 `slides` 中的下标 |
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `play()` | `void` | Starts / resumes autoplay |
+| `pause()` | `void` | Pauses autoplay |
+| `toggle()` | `void` | Toggles between playing and paused |
+| `playing()` | `boolean` | Whether autoplay is running; changes at the same moments `onPlay` / `onPause` fire |
+| `next()` | `boolean` | Switches to the next slide |
+| `previous()` | `boolean` | Switches to the previous slide |
+| `goTo(index)` | `boolean` | Jumps to the given index (`jump` in the original Vegas) |
+| `current()` | `number` | Index of the current slide in `slides` |
 
-`next` / `previous` / `goTo` 返回是否真的开始了切换。下标越界、目标就是当前幻灯片、
-或上一次切换动画尚未结束时，它们不做任何事并返回 `false` —— 这三种情况在快速连点
-导航按钮时都会出现。
+`next` / `previous` / `goTo` return whether a switch actually started. They do nothing and return `false` when the index
+is out of range, the target is already the current slide, or the previous transition hasn't finished yet. All three
+happen when navigation buttons are clicked in quick succession.
 
-`current()` 返回的始终是 `slides` 里的真实下标，`shuffle` 打乱播放顺序时也是如此。
+`current()` always returns the real index in `slides`, even when `shuffle` changes the playback order.
 
-### 圆点导航
+### Dot navigation
 
-`goTo` + `current()` + `onWalk` 组合起来就是一套指示器：
+`goTo`, `current()` and `onWalk` are enough to build a dot indicator:
 
 ```vue
 <script setup lang="ts">
@@ -412,17 +416,17 @@ const active = ref(0)
 </template>
 ```
 
-> 指示器写在 `<Vegas>` 之后即可。组件根元素带 `isolation: isolate`，内部图层
-> （含遮罩、进度条）不会溢出到宿主页面，兄弟节点默认就压在它上面。
+> Placing the indicator after `<Vegas>` is enough. The component's root element has `isolation: isolate`, so its internal
+> layers (including the overlay and the progress bar) don't leak into the host page, and siblings stack on top of it by default.
 >
-> `onWalk` 只在**切换**时触发，首屏渲染不触发，所以 `active` 的初值要和
-> `slide` prop 保持一致（默认都是 `0`）。
+> `onWalk` fires on switches, not on the initial render, so the initial value of `active` must match the
+> `slide` prop (both default to `0`).
 
 ---
 
-## 示例
+## Examples
 
-### 混合过渡效果
+### Mixed transitions
 
 ```vue
 <Vegas
@@ -438,7 +442,7 @@ const active = ref(0)
 />
 ```
 
-### 默认背景 + 首帧过渡
+### Default background + first-slide transition
 
 ```vue
 <Vegas
@@ -450,9 +454,9 @@ const active = ref(0)
 />
 ```
 
-默认背景停留 2 秒后，与第一张幻灯片同步交叉淡入，形成自然过渡。
+The default background stays for 2 seconds, then cross-fades into the first slide.
 
-### 视频幻灯片
+### Video slides
 
 ```vue
 <Vegas
@@ -470,10 +474,10 @@ const active = ref(0)
 />
 ```
 
-`muted`/`loop` 默认都是 `true`（示例中的 `muted: true` 可省略，这里显式写出只是为了强调）；
-`loop: false` 时视频播放完毕后自动切换到下一张。
+`muted` / `loop` both default to `true`, so `muted: true` above could be omitted; it is spelled out for clarity.
+With `loop: false`, the component switches to the next slide once the video finishes.
 
-只需要指定视频源时可以用数组简写，与原版 Vegas.js 一致 —— 等价于 `{ src: [...] }`，`muted`/`loop` 取默认值：
+When you only need to set the video sources, use the array shorthand from the original Vegas.js. It is equivalent to `{ src: [...] }`, with `muted` / `loop` at their defaults:
 
 ```vue
 <Vegas
@@ -483,23 +487,24 @@ const active = ref(0)
 />
 ```
 
-> 源列表为空（`video: []` 或 `video: { src: [] }`）时该张按**图片**幻灯片渲染。没有任何 `<source>` 的
-> `<video>` 既放不出画面，也永远不会触发 `ended`，配上 `delay: 'video'` 只能干等到 `videoMaxDelay`
-> 才切得走；开启 `debug` 会在控制台告警。原版这里会照渲一个空 `<video>`，没有照搬。
+> When the source list is empty (`video: []` or `video: { src: [] }`), the slide renders as an **image** slide. A
+> `<video>` with no `<source>` shows nothing and never fires `ended`, so with `delay: 'video'` it could only switch away
+> once `videoMaxDelay` runs out; enabling `debug` logs a warning in the console. The original renders an empty `<video>`
+> here; vue3-vegas doesn't.
 
-#### 声音淡入淡出
+#### Sound fade-in / fade-out
 
-`muted: false` 的视频在切换时不会硬切声音（对齐原版 Vegas.js 的 `_fadeInSound` / `_fadeOutSound`）：
+When a switch involves a video with `muted: false`, its sound fades in or out (ported from `_fadeInSound` / `_fadeOutSound` in the original Vegas.js):
 
-- **进入**的视频音量从 `0` 淡入到满，用时与本次过渡的 `transitionDuration` 一致。
-- **离场**的视频音量淡出到 `0`，淡出结束时暂停播放 —— 否则它会一直放到元素被移除为止，和新视频的声音重叠。
-- `muted: true`（默认）的视频不会被改动音量，只在离场时暂停。
+- The **entering** video fades its volume from `0` up to full, taking as long as this switch's `transitionDuration`.
+- The **leaving** video fades its volume down to `0` and pauses when the fade ends. Without the pause it would keep playing until the element is removed, over the new video's sound.
+- Videos with `muted: true` (the default) keep their volume untouched and are only paused when leaving.
 
-> 浏览器的自动播放策略会拦截带声音的自动播放。`muted: false` 通常需要用户先与页面产生交互，
-> 否则 `play()` 会被拒绝（开启 `debug` 可在控制台看到告警）。
+> Browser autoplay policies block autoplay with sound. `muted: false` usually needs the user to interact with the page
+> first, otherwise `play()` is rejected (enable `debug` to see the warning in the console).
 
-视频幻灯片的停留时长同样由 `delay` 决定，时间一到就切走，不管视频是否播完。想按视频本身的长度播放，把该张的
-`delay` 设为 `'video'`：
+A video slide also switches when its `delay` runs out, whether or not the video has finished. To play for the length
+of the video itself, set that slide's `delay` to `'video'`:
 
 ```vue
 <Vegas
@@ -511,12 +516,12 @@ const active = ref(0)
 />
 ```
 
-- 视频完整播一遍后切到下一张，此时忽略 `video.loop`（循环的视频永远不会结束）。
-- 视频卡在缓冲、迟迟播不完时，停留满 `videoMaxDelay`（默认 5 分钟）兜底切走；所有视频源都加载失败、或播放途中出致命错误时直接切走。
-- 只有一张幻灯片时没有可切换的目标，照 `video.loop` 播放。
-- 进入播放状态时组件会主动调用 `play()`，不只依赖 `autoplay` 属性，大码率视频在慢网络下也能边下边播。
+- The video plays through once and then switches to the next slide; `video.loop` is ignored here (a looping video never ends).
+- If the video is stuck buffering and doesn't finish, it switches away after `videoMaxDelay` (5 minutes by default); if every video source fails to load, or a fatal error occurs during playback, it switches away immediately.
+- With only one slide there is nothing to switch to, so it plays according to `video.loop`.
+- On entering the playing state the component calls `play()` itself instead of relying only on the `autoplay` attribute, so high-bitrate videos can start playing while still downloading on slow networks.
 
-### 随机播放 + 预加载
+### Shuffle + preloading
 
 ```vue
 <Vegas
@@ -531,29 +536,29 @@ const active = ref(0)
 
 ---
 
-## 开发
+## Development
 
-开发环境需要 Node.js `^22.22.2`、`^24.15.0` 或 `>=26`（jsdom 30 与 vitest 5 的要求）。
+Development requires Node.js `^22.22.2`, `^24.15.0` or `>=26` (required by jsdom 30 and vitest 5).
 
 ```bash
-# 安装依赖
+# Install dependencies
 pnpm install
 
-# 启动 Storybook 预览
+# Start the Storybook preview
 pnpm storybook
 
-# 构建
+# Build
 pnpm build
 
-# 运行测试
+# Run tests
 pnpm test
 ```
 
 ---
 
-## 致谢
+## Acknowledgements
 
-本项目基于 [Vegas.js](https://github.com/jaysalvat/vegas) 的核心理念，为 Vue 3 重新实现。
+This project reimplements the core ideas of [Vegas.js](https://github.com/jaysalvat/vegas) for Vue 3.
 
 ---
 
@@ -563,30 +568,30 @@ MIT
 
 ---
 
-## 从 0.2.x 升级到 0.4.0 及以上
+## Upgrading from 0.2.x to 0.4.0 or later
 
-0.3.0 没有发布到 npm，下面的变化都随 0.4.0 一起到达。
+0.3.0 was never published to npm; all of the changes below arrived with 0.4.0.
 
-### 过渡效果
+### Transitions
 
-过渡效果严格对齐了原版 Vegas.js 的语义，有三处观感变化：
+Transitions now follow the semantics of the original Vegas.js exactly, which brings three visible changes:
 
-1. **`fade`、`slideLeft`、`slideRight`、`zoomIn`、`zoomOut` 不再让旧幻灯片做离场动画。**
-   想保留 0.2.x 的双向效果，把名字改成带 `2` 后缀的版本即可，例如 `fade` → `fade2`。
-2. **`zoomIn` 的缩放幅度**由 `scale(0.5) → scale(1)` 改为原版的 `scale(0) → scale(1)`。
-3. **`zoomOut` 的缩放幅度**由 `scale(1.25) → scale(1)` 改为原版的 `scale(2) → scale(1)`。
+1. **`fade`, `slideLeft`, `slideRight`, `zoomIn` and `zoomOut` no longer animate the outgoing slide.**
+   To keep the two-way effect from 0.2.x, switch to the name with the `2` suffix, e.g. `fade` → `fade2`.
+2. **The scale range of `zoomIn`** changed from `scale(0.5) → scale(1)` to the original's `scale(0) → scale(1)`.
+3. **The scale range of `zoomOut`** changed from `scale(1.25) → scale(1)` to the original's `scale(2) → scale(1)`.
 
-`zoomInOut` 不受影响。
+`zoomInOut` is unaffected.
 
-关于 `--vegas-zoom-scale` 的适用范围，注意两点：
+`--vegas-zoom-scale` can undo only one of the two zoom changes:
 
-- **`zoomOut` 可以调**：它的起始缩放就是这个变量，`--vegas-zoom-scale: 1.25` 即可回到 0.2.x 的观感。
-- **`zoomIn` 调不了**：`zoomIn` 的起点是硬编码的 `scale(0)`，这个变量只出现在它的离场状态里（即只对 `zoomIn2` 的旧图生效），无法用来恢复 0.2.x 的 `scale(0.5)`。想要更柔和的放大，请改用 `zoomInOut` 或自行包一层 CSS。
+- **`zoomOut` can be tuned.** Its starting scale is this variable, so `--vegas-zoom-scale: 1.25` brings back the 0.2.x look.
+- **`zoomIn` cannot.** It starts from a hard-coded `scale(0)`. The variable only appears in its leaving state (so it only affects the outgoing image in `zoomIn2`) and can't restore the 0.2.x `scale(0.5)`. For a softer zoom-in, use `zoomInOut` or wrap it in your own CSS.
 
-### 默认值
+### Defaults
 
-- **`firstTransitionDuration` 默认值由 `3000` 改为 `null`**，缺省时回退到 `transitionDuration`（默认 `1000`），
-  第一张的进入动画从 3 秒变成 1 秒。想保留旧节奏，显式传 `:first-transition-duration="3000"`。
-- **视频的 `muted` / `loop` 默认值改为 `true`**，与原版 Vegas.js 一致。0.2.x 里不写这两项时，视频既不静音
-  （常被浏览器自动播放策略拦下），也不循环，放完就切到下一张；现在默认静音循环，只按 `delay` 切走。
-  想保留「放完就切」，给该张设 `loop: false`，或（0.5.0 起）设 `delay: 'video'`。
+- **The `firstTransitionDuration` default changed from `3000` to `null`**; when unset it falls back to `transitionDuration` (default `1000`),
+  so the first slide's entrance goes from 3 seconds to 1 second. To keep the old pace, pass `:first-transition-duration="3000"` explicitly.
+- **Video `muted` / `loop` now default to `true`**, matching the original Vegas.js. In 0.2.x, leaving them out meant a video was
+  neither muted (so browser autoplay policies often blocked it) nor looping, and switched to the next slide once it ended. Now videos
+  are muted and loop by default, and switch only when `delay` runs out. To keep "switch when it ends", set `loop: false` on that slide, or (since 0.5.0) set `delay: 'video'`.
